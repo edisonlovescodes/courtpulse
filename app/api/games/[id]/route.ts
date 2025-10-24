@@ -31,7 +31,17 @@ export async function GET(req: Request, { params }: any) {
 
     // Enforce limits only for live games
     if (live) {
-      const { allowed, reason } = await canUnlockGame(userId, plan, game.gameId)
+      let allowed = true as boolean
+      let reason: string | undefined = undefined
+      try {
+        const res = await canUnlockGame(userId, plan, game.gameId)
+        allowed = res.allowed
+        reason = res.reason
+      } catch (e) {
+        // If DB is not ready (no tables / env), don't block viewing.
+        allowed = true
+      }
+
       if (!allowed) {
         return NextResponse.json(
           {
@@ -48,9 +58,9 @@ export async function GET(req: Request, { params }: any) {
           { status: 200 },
         )
       }
-      // Mark unlock and log view
-      await unlockGame(userId, plan, game.gameId)
-      await logGameView(userId, game.gameId, game.period || 0)
+      // Mark unlock and log view (best-effort)
+      try { await unlockGame(userId, plan, game.gameId) } catch {}
+      try { await logGameView(userId, game.gameId, game.period || 0) } catch {}
     }
 
     return NextResponse.json({
