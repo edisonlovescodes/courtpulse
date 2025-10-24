@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  createdAt DateTime @default(now())
+}
+
+// Tracks which game a user unlocked in a time period
+model GameUnlock {
+  id          Int      @id @default(autoincrement())
+  userId      String
+  gameId      String
+  period      String   // 'day' | 'week'
+  periodStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, gameId, period, periodStart])
+  @@index([userId, period, periodStart])
+}
+
+// Usage tracking per game period (e.g., quarter)
+model GameView {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  gameId    String
+  period    Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, gameId, period])
+  @@index([userId, gameId])
+}

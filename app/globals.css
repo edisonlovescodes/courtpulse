@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #FCF6F5;
+  --text: #141212;
+  --accent: #FA4616;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+a {
+  color: theme('colors.brand.accent');
+}
+
+button.primary {
+  @apply bg-brand-accent text-white px-4 py-2 rounded font-medium hover:opacity-90 transition;
+}
+
+.card {
+  @apply bg-white/60 border border-black/5 rounded-lg p-4 shadow-sm;
+}
+
