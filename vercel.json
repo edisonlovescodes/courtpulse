@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/**/*.func": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
@@ -17,4 +12,3 @@
     }
   ]
 }
-
