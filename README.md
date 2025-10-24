@@ -30,7 +30,7 @@ Built using [Alex Hormozi's value-based pricing framework](https://www.acquisiti
 - **Language:** TypeScript
 - **Styling:** TailwindCSS
 - **Database:** Prisma ORM
-  - Local dev: SQLite
+  - Local dev: SQLite (optional)
   - Production: PostgreSQL (Vercel Postgres, Supabase, or Neon)
 - **Auth:** Whop SDK (header-based)
 - **Data Source:** [NBA.com Public API](https://cdn.nba.com/static/json/liveData) (free, no key required)
@@ -226,7 +226,7 @@ Get detailed game info. **Enforces plan limits for live games.**
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (prod). For local SQLite, use `file:./dev.db` |
 | `WHOP_APP_SECRET` | Production | Whop app secret for token verification |
 | `DEV_USER_ID` | Dev only | Default user ID for local testing |
 | `DEV_PLAN` | Dev only | Default plan (`starter`/`pro`/`max`) |
