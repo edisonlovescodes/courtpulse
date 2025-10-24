@@ -102,6 +102,7 @@ export async function getGamesByDate(date: string): Promise<TodayGame[]> {
       awayScore: g.awayTeam.score || 0,
       status: formatStatus(g.gameStatus, g.gameStatusText),
       period: g.period || 0,
+      gameClock: (g as any).gameClock || '',
     }))
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {

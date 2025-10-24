@@ -10,7 +10,7 @@ export async function GET() {
     const liveIds = games.filter(g => isLiveStatus(g.status)).map(g => g.id)
     if (liveIds.length > 0) {
       const refreshed = await Promise.allSettled(liveIds.map(id => getGameById(id)))
-      const liveMap = new Map<string, { homeScore: number; awayScore: number; period: number; status: string }>()
+      const liveMap = new Map<string, { homeScore: number; awayScore: number; period: number; status: string; gameClock?: string }>()
       refreshed.forEach((r, i) => {
         if (r.status === 'fulfilled') {
           const g = r.value
@@ -19,6 +19,7 @@ export async function GET() {
             awayScore: g.awayTeam.score || 0,
             period: g.period || 0,
             status: 'Live',
+            gameClock: g.gameClock || '',
           })
         }
       })
@@ -29,6 +30,7 @@ export async function GET() {
           g.awayScore = upd.awayScore
           g.period = upd.period
           g.status = upd.status
+          ;(g as any).gameClock = upd.gameClock
         }
       }
     }

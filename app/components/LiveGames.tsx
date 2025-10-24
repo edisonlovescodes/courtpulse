@@ -11,6 +11,7 @@ type Game = {
   awayScore: number
   status: string
   period: number
+  gameClock?: string
 }
 
 function isLive(status: string) {
@@ -77,7 +78,7 @@ export default function LiveGames() {
             Live Updates
           </div>
           <h2 className="text-3xl md:text-4xl font-bold mb-3">Today&apos;s NBA Games</h2>
-          <p className="text-lg opacity-70 max-w-2xl">Real-time scores with automatic refresh</p>
+          <p className="text-lg opacity-70 max-w-2xl">Real-time scores</p>
           <div className="flex items-center gap-4 mt-6">
             <div className="text-xs px-4 py-2 rounded-full bg-white shadow-sm border border-black/5 font-medium">
               {games.length} {games.length === 1 ? 'Game' : 'Games'} Today
@@ -111,7 +112,16 @@ export default function LiveGames() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="text-sm opacity-60 font-medium">{g.period > 0 && `Quarter ${g.period}`}</div>
+                  <div className="text-sm opacity-60 font-medium">
+                    {g.period > 0 && (
+                      <span>
+                        Q{g.period}
+                        {g.gameClock && (
+                          <span className="ml-2 font-mono">{formatGameClock(g.gameClock)}</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-6">
                     <div className="text-right">
                       <div className="text-lg font-bold mb-1">{g.awayTeam}</div>
@@ -199,4 +209,12 @@ export default function LiveGames() {
     </>
   )
 }
+  function formatGameClock(clock?: string): string {
+    if (!clock) return ''
+    const match = clock.match(/PT(\d+)M([\d.]+)S/i)
+    if (!match) return clock
+    const mins = match[1]
+    const secs = Math.floor(parseFloat(match[2]))
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
