@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getAuthFromHeaders } from '@/lib/whop'
 import { getGameById, isLiveStatus, type NBAGame } from '@/lib/ball'
 import { canUnlockGame, logGameView, unlockGame } from '@/lib/limits'
@@ -19,8 +19,8 @@ function formatStatus(game: NBAGame): string {
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const gameId = params.id
+export async function GET(req: Request, { params }: any) {
+  const gameId = params.id as string
 
   const { userId, plan } = await getAuthFromHeaders(req.headers)
 

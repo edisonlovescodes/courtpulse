@@ -11,7 +11,7 @@
     "prisma:studio": "prisma studio",
     "lint": "next lint",
     "typecheck": "tsc -p . --noEmit",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@prisma/client": "^5.19.0",
