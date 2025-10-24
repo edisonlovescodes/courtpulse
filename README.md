@@ -227,6 +227,7 @@ Get detailed game info. **Enforces plan limits for live games.**
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string (prod). For local SQLite, use `file:./dev.db` |
+| `DIRECT_URL` | Recommended | Direct (non-pooled) Postgres URL used by Prisma Migrate. With Supabase, use the 5432 non-pooler URL. |
 | `WHOP_APP_SECRET` | Production | Whop app secret for token verification |
 | `DEV_USER_ID` | Dev only | Default user ID for local testing |
 | `DEV_PLAN` | Dev only | Default plan (`starter`/`pro`/`max`) |
