@@ -35,22 +35,28 @@ The notification system requires two database tables:
 
 These are automatically created when you deploy or run `npx prisma db push`.
 
-### 3. Vercel Cron Setup
+### 3. GitHub Actions Cron Setup (FREE!)
 
-The app includes a Vercel Cron configuration in `vercel.json`:
+The app uses GitHub Actions to trigger notifications every minute - completely free!
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/notifications",
-      "schedule": "* * * * *"
-    }
-  ]
-}
-```
+**Setup Steps:**
 
-This runs every minute to check for game updates. **Note**: Vercel Cron is only available on Pro plans.
+1. **Add GitHub Secrets**
+   - Go to your GitHub repository → Settings → Secrets and variables → Actions
+   - Add two secrets:
+     - `VERCEL_URL`: Your deployed Vercel URL (e.g., `https://your-app.vercel.app`)
+     - `CRON_SECRET`: A random secret for securing the endpoint (same as in Vercel env vars)
+
+2. **Enable GitHub Actions**
+   - The workflow file is already included at `.github/workflows/notifications-cron.yml`
+   - It will automatically start running every minute once you push to main branch
+
+3. **Verify It's Working**
+   - Go to your repository → Actions tab
+   - You should see "Game Notifications Cron" running every minute
+   - Click on a run to see logs
+
+**Note**: GitHub Actions is free for public repositories and has 2,000 minutes/month for private repos on free tier.
 
 ## Admin Portal Usage
 
@@ -302,10 +308,13 @@ Required permissions for `WHOP_API_KEY`:
 
 ## Cost Considerations
 
-- **Vercel Cron**: Requires Pro plan ($20/month)
-- **NBA API**: Free, no rate limits
-- **Whop API**: Free within reasonable limits
+- **GitHub Actions**: FREE (2,000 minutes/month for private repos, unlimited for public)
+- **Vercel Hosting**: FREE (Hobby plan is sufficient)
+- **NBA API**: FREE, no rate limits
+- **Whop API**: FREE within reasonable limits
 - **Database**: Minimal storage needed
+
+**Total Cost: $0/month** 🎉
 
 ## Future Enhancements
 
