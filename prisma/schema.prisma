@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -36,4 +35,35 @@ model GameView {
 
   @@unique([userId, gameId, period])
   @@index([userId, gameId])
+}
+
+// Company notification settings
+model NotificationSettings {
+  id                   Int      @id @default(autoincrement())
+  companyId            String   @unique
+  enabled              Boolean  @default(false)
+  channelId            String?  // Whop chat channel ID
+  channelName          String?  // Display name for UI
+  updateFrequency      String   @default("every_point") // 'every_point' | 'every_minute' | 'every_quarter'
+  notifyGameStart      Boolean  @default(true)
+  notifyGameEnd        Boolean  @default(true)
+  notifyQuarterEnd     Boolean  @default(true)
+  trackedGames         String   @default("") // Comma-separated game IDs
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// Track last notification state per game to avoid duplicates
+model GameNotificationState {
+  id                Int      @id @default(autoincrement())
+  companyId         String
+  gameId            String
+  lastHomeScore     Int      @default(0)
+  lastAwayScore     Int      @default(0)
+  lastPeriod        Int      @default(0)
+  lastStatus        String   @default("")
+  lastNotifiedAt    DateTime @default(now())
+
+  @@unique([companyId, gameId])
+  @@index([companyId])
 }
