@@ -94,10 +94,29 @@ function formatGameClock(clock?: string): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+function formatMinutes(minutes: string): string {
+  if (!minutes || minutes === '0:00') return '0'
+  // Parse PT12M34.00S or MM:SS format
+  if (minutes.startsWith('PT')) {
+    const match = minutes.match(/PT(\d+)M/)
+    if (match) {
+      return Math.ceil(parseInt(match[1])).toString()
+    }
+  }
+  // Parse MM:SS format
+  const parts = minutes.split(':')
+  if (parts.length === 2) {
+    const mins = parseInt(parts[0])
+    const secs = parseInt(parts[1])
+    return Math.ceil(mins + (secs > 0 ? 1 : 0)).toString()
+  }
+  return minutes
+}
+
 export default function Client({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('boxscore')
 
   const load = useCallback(async () => {
     try {
@@ -253,7 +272,7 @@ export default function Client({ id }: { id: string }) {
                       <th key={`ot${i}`} className="text-center py-3 px-4 font-bold min-w-[60px]">OT{i > 0 ? i + 1 : ''}</th>
                     ))
                   )}
-                  <th className="text-center py-3 px-4 font-bold bg-brand-accent text-white min-w-[60px]">T</th>
+                  <th className="text-center py-3 px-4 font-bold bg-brand-accent text-white min-w-[80px]">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -341,7 +360,7 @@ export default function Client({ id }: { id: string }) {
                     <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
                       <td className="text-center py-3 px-3">{player.position}</td>
-                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.minutes || '0:00'}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{formatMinutes(player.statistics.minutes)}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.assists}</td>
                       <td className="text-center py-3 px-3 font-bold tabular-nums">{player.statistics.points}</td>
@@ -399,7 +418,7 @@ export default function Client({ id }: { id: string }) {
                     <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
                       <td className="text-center py-3 px-3">{player.position}</td>
-                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.minutes || '0:00'}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{formatMinutes(player.statistics.minutes)}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.assists}</td>
                       <td className="text-center py-3 px-3 font-bold tabular-nums">{player.statistics.points}</td>
