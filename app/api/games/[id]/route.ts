@@ -73,6 +73,23 @@ export async function GET(req: Request, { params }: any) {
       period: game.period || 0,
       gameClock: game.gameClock || '',
       allowed: true,
+      // Include detailed stats
+      homeTeamDetails: {
+        teamTricode: game.homeTeam.teamTricode,
+        wins: game.homeTeam.wins,
+        losses: game.homeTeam.losses,
+        periods: game.homeTeam.periods || [],
+        players: game.homeTeam.players || [],
+        statistics: game.homeTeam.statistics,
+      },
+      awayTeamDetails: {
+        teamTricode: game.awayTeam.teamTricode,
+        wins: game.awayTeam.wins,
+        losses: game.awayTeam.losses,
+        periods: game.awayTeam.periods || [],
+        players: game.awayTeam.players || [],
+        statistics: game.awayTeam.statistics,
+      },
     }, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',

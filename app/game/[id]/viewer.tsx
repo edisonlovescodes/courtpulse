@@ -3,6 +3,71 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import BusinessCard from '../../components/BusinessCard'
 
+type PlayerStats = {
+  personId: number
+  name: string
+  jerseyNum: string
+  position: string
+  starter: string
+  played: string
+  statistics: {
+    minutes: string
+    points: number
+    reboundsTotal: number
+    assists: number
+    fieldGoalsMade: number
+    fieldGoalsAttempted: number
+    fieldGoalsPercentage: number
+    threePointersMade: number
+    threePointersAttempted: number
+    threePointersPercentage: number
+    freeThrowsMade: number
+    freeThrowsAttempted: number
+    freeThrowsPercentage: number
+    foulsPersonal: number
+    steals: number
+    blocks: number
+    turnovers: number
+    plusMinusPoints: number
+  }
+}
+
+type TeamStats = {
+  fieldGoalsMade: number
+  fieldGoalsAttempted: number
+  fieldGoalsPercentage: number
+  threePointersMade: number
+  threePointersAttempted: number
+  threePointersPercentage: number
+  freeThrowsMade: number
+  freeThrowsAttempted: number
+  freeThrowsPercentage: number
+  reboundsTotal: number
+  reboundsOffensive: number
+  reboundsDefensive: number
+  assists: number
+  blocks: number
+  steals: number
+  turnovers: number
+  pointsInThePaint: number
+  foulsPersonal: number
+}
+
+type PeriodScore = {
+  period: number
+  periodType: string
+  score: number
+}
+
+type TeamDetails = {
+  teamTricode: string
+  wins: number
+  losses: number
+  periods: PeriodScore[]
+  players: PlayerStats[]
+  statistics?: TeamStats
+}
+
 type Detail = {
   id: string
   homeTeam: string
@@ -14,6 +79,8 @@ type Detail = {
   gameClock?: string
   allowed: boolean
   reason?: string
+  homeTeamDetails?: TeamDetails
+  awayTeamDetails?: TeamDetails
 }
 
 function formatGameClock(clock?: string): string {
@@ -30,6 +97,7 @@ function formatGameClock(clock?: string): string {
 export default function Client({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('overview')
 
   const load = useCallback(async () => {
     try {
@@ -84,6 +152,10 @@ export default function Client({ id }: { id: string }) {
   }
 
   const isLive = data.status.toLowerCase().includes('live') || data.status.toLowerCase().includes('in progress')
+  const awayPeriods = data.awayTeamDetails?.periods || []
+  const homePeriods = data.homeTeamDetails?.periods || []
+  const awayPlayers = data.awayTeamDetails?.players?.filter(p => p.played === '1') || []
+  const homePlayers = data.homeTeamDetails?.players?.filter(p => p.played === '1') || []
 
   return (
     <main className="space-y-6">
@@ -165,7 +237,304 @@ export default function Client({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Limit warnings hidden - app is free for everyone */}
+      {/* Quarter by Quarter Score */}
+      {(awayPeriods.length > 0 || homePeriods.length > 0) && (
+        <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-black/10">
+                  <th className="text-left py-3 px-4 font-bold">Team</th>
+                  {[1, 2, 3, 4].map(q => (
+                    <th key={q} className="text-center py-3 px-4 font-bold min-w-[60px]">{q}</th>
+                  ))}
+                  {Math.max(awayPeriods.length, homePeriods.length) > 4 && (
+                    [...Array(Math.max(awayPeriods.length, homePeriods.length) - 4)].map((_, i) => (
+                      <th key={`ot${i}`} className="text-center py-3 px-4 font-bold min-w-[60px]">OT{i > 0 ? i + 1 : ''}</th>
+                    ))
+                  )}
+                  <th className="text-center py-3 px-4 font-bold bg-brand-accent text-white min-w-[60px]">T</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">{data.awayTeam}</td>
+                  {[1, 2, 3, 4].map(q => {
+                    const period = awayPeriods.find(p => p.period === q)
+                    return <td key={q} className="text-center py-3 px-4 tabular-nums">{period?.score || '-'}</td>
+                  })}
+                  {awayPeriods.length > 4 && awayPeriods.slice(4).map((p, i) => (
+                    <td key={`ot${i}`} className="text-center py-3 px-4 tabular-nums">{p.score}</td>
+                  ))}
+                  <td className="text-center py-3 px-4 font-bold bg-brand-accent/10 tabular-nums">{data.awayScore}</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-medium">{data.homeTeam}</td>
+                  {[1, 2, 3, 4].map(q => {
+                    const period = homePeriods.find(p => p.period === q)
+                    return <td key={q} className="text-center py-3 px-4 tabular-nums">{period?.score || '-'}</td>
+                  })}
+                  {homePeriods.length > 4 && homePeriods.slice(4).map((p, i) => (
+                    <td key={`ot${i}`} className="text-center py-3 px-4 tabular-nums">{p.score}</td>
+                  ))}
+                  <td className="text-center py-3 px-4 font-bold bg-brand-accent/10 tabular-nums">{data.homeScore}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-black/10">
+        <button
+          onClick={() => setActiveTab('boxscore')}
+          className={`px-6 py-3 font-bold transition ${
+            activeTab === 'boxscore'
+              ? 'text-brand-accent border-b-2 border-brand-accent'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Player Stats
+        </button>
+        <button
+          onClick={() => setActiveTab('teamstats')}
+          className={`px-6 py-3 font-bold transition ${
+            activeTab === 'teamstats'
+              ? 'text-brand-accent border-b-2 border-brand-accent'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Team Stats
+        </button>
+      </div>
+
+      {/* Player Stats Tab */}
+      {activeTab === 'boxscore' && (
+        <div className="space-y-6">
+          {/* Away Team Players */}
+          <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
+            <div className="bg-gray-50 px-6 py-4 border-b border-black/10">
+              <h3 className="font-bold text-lg">{data.awayTeam}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 text-xs text-gray-600">
+                    <th className="text-left py-2 px-4 font-bold sticky left-0 bg-white">Player</th>
+                    <th className="text-center py-2 px-3 font-bold">Pos</th>
+                    <th className="text-center py-2 px-3 font-bold">Min</th>
+                    <th className="text-center py-2 px-3 font-bold">Reb</th>
+                    <th className="text-center py-2 px-3 font-bold">Ast</th>
+                    <th className="text-center py-2 px-3 font-bold">Pts</th>
+                    <th className="text-center py-2 px-3 font-bold">FG</th>
+                    <th className="text-center py-2 px-3 font-bold">3PT</th>
+                    <th className="text-center py-2 px-3 font-bold">FT</th>
+                    <th className="text-center py-2 px-3 font-bold">Stl</th>
+                    <th className="text-center py-2 px-3 font-bold">Blk</th>
+                    <th className="text-center py-2 px-3 font-bold">TO</th>
+                    <th className="text-center py-2 px-3 font-bold">+/-</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {awayPlayers.map((player) => (
+                    <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
+                      <td className="text-center py-3 px-3">{player.position}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.minutes || '0:00'}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.assists}</td>
+                      <td className="text-center py-3 px-3 font-bold tabular-nums">{player.statistics.points}</td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.fieldGoalsMade}/{player.statistics.fieldGoalsAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.threePointersMade}/{player.statistics.threePointersAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.freeThrowsMade}/{player.statistics.freeThrowsAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.steals}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.blocks}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.turnovers}</td>
+                      <td className={`text-center py-3 px-3 tabular-nums font-medium ${
+                        player.statistics.plusMinusPoints > 0 ? 'text-green-600' :
+                        player.statistics.plusMinusPoints < 0 ? 'text-red-600' : ''
+                      }`}>
+                        {player.statistics.plusMinusPoints > 0 ? '+' : ''}{player.statistics.plusMinusPoints}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Home Team Players */}
+          <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
+            <div className="bg-gray-50 px-6 py-4 border-b border-black/10">
+              <h3 className="font-bold text-lg">{data.homeTeam}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 text-xs text-gray-600">
+                    <th className="text-left py-2 px-4 font-bold sticky left-0 bg-white">Player</th>
+                    <th className="text-center py-2 px-3 font-bold">Pos</th>
+                    <th className="text-center py-2 px-3 font-bold">Min</th>
+                    <th className="text-center py-2 px-3 font-bold">Reb</th>
+                    <th className="text-center py-2 px-3 font-bold">Ast</th>
+                    <th className="text-center py-2 px-3 font-bold">Pts</th>
+                    <th className="text-center py-2 px-3 font-bold">FG</th>
+                    <th className="text-center py-2 px-3 font-bold">3PT</th>
+                    <th className="text-center py-2 px-3 font-bold">FT</th>
+                    <th className="text-center py-2 px-3 font-bold">Stl</th>
+                    <th className="text-center py-2 px-3 font-bold">Blk</th>
+                    <th className="text-center py-2 px-3 font-bold">TO</th>
+                    <th className="text-center py-2 px-3 font-bold">+/-</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {homePlayers.map((player) => (
+                    <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
+                      <td className="text-center py-3 px-3">{player.position}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.minutes || '0:00'}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.assists}</td>
+                      <td className="text-center py-3 px-3 font-bold tabular-nums">{player.statistics.points}</td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.fieldGoalsMade}/{player.statistics.fieldGoalsAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.threePointersMade}/{player.statistics.threePointersAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums text-xs">
+                        {player.statistics.freeThrowsMade}/{player.statistics.freeThrowsAttempted}
+                      </td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.steals}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.blocks}</td>
+                      <td className="text-center py-3 px-3 tabular-nums">{player.statistics.turnovers}</td>
+                      <td className={`text-center py-3 px-3 tabular-nums font-medium ${
+                        player.statistics.plusMinusPoints > 0 ? 'text-green-600' :
+                        player.statistics.plusMinusPoints < 0 ? 'text-red-600' : ''
+                      }`}>
+                        {player.statistics.plusMinusPoints > 0 ? '+' : ''}{player.statistics.plusMinusPoints}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Stats Tab */}
+      {activeTab === 'teamstats' && data.awayTeamDetails?.statistics && data.homeTeamDetails?.statistics && (
+        <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-black/10">
+                  <th className="text-left py-3 px-4 font-bold">Stat</th>
+                  <th className="text-center py-3 px-4 font-bold">{data.awayTeam}</th>
+                  <th className="text-center py-3 px-4 font-bold">{data.homeTeam}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Field Goals</td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.awayTeamDetails.statistics.fieldGoalsMade}/{data.awayTeamDetails.statistics.fieldGoalsAttempted}
+                  </td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.homeTeamDetails.statistics.fieldGoalsMade}/{data.homeTeamDetails.statistics.fieldGoalsAttempted}
+                  </td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Field Goal %</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.fieldGoalsPercentage.toFixed(1)}%</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.fieldGoalsPercentage.toFixed(1)}%</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">3 Pointers</td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.awayTeamDetails.statistics.threePointersMade}/{data.awayTeamDetails.statistics.threePointersAttempted}
+                  </td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.homeTeamDetails.statistics.threePointersMade}/{data.homeTeamDetails.statistics.threePointersAttempted}
+                  </td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">3 Point %</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.threePointersPercentage.toFixed(1)}%</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.threePointersPercentage.toFixed(1)}%</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Free Throws</td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.awayTeamDetails.statistics.freeThrowsMade}/{data.awayTeamDetails.statistics.freeThrowsAttempted}
+                  </td>
+                  <td className="text-center py-3 px-4 tabular-nums">
+                    {data.homeTeamDetails.statistics.freeThrowsMade}/{data.homeTeamDetails.statistics.freeThrowsAttempted}
+                  </td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Free Throw %</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.freeThrowsPercentage.toFixed(1)}%</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.freeThrowsPercentage.toFixed(1)}%</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Total Rebounds</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.reboundsTotal}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.reboundsTotal}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Offensive Rebounds</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.reboundsOffensive}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.reboundsOffensive}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Defensive Rebounds</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.reboundsDefensive}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.reboundsDefensive}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Assists</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.assists}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.assists}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Blocks</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.blocks}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.blocks}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Steals</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.steals}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.steals}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Turnovers</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.turnovers}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.turnovers}</td>
+                </tr>
+                <tr className="border-b border-black/5">
+                  <td className="py-3 px-4 font-medium">Points in the Paint</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.pointsInThePaint}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.pointsInThePaint}</td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-4 font-medium">Fouls (Personal)</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.awayTeamDetails.statistics.foulsPersonal}</td>
+                  <td className="text-center py-3 px-4 tabular-nums">{data.homeTeamDetails.statistics.foulsPersonal}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Business Card */}
       <div className="mt-8">

@@ -1,6 +1,121 @@
 // Using NBA.com's free public API
 const NBA_API_BASE = 'https://cdn.nba.com/static/json/liveData'
 
+export type PlayerStats = {
+  personId: number
+  name: string
+  nameI?: string
+  firstName?: string
+  familyName?: string
+  jerseyNum: string
+  position: string
+  starter: string
+  oncourt: string
+  played: string
+  statistics: {
+    assists: number
+    blocks: number
+    blocksReceived: number
+    fieldGoalsAttempted: number
+    fieldGoalsMade: number
+    fieldGoalsPercentage: number
+    foulsOffensive: number
+    foulsDrawn: number
+    foulsPersonal: number
+    foulsTechnical: number
+    freeThrowsAttempted: number
+    freeThrowsMade: number
+    freeThrowsPercentage: number
+    minus: number
+    minutes: string
+    minutesCalculated: string
+    plus: number
+    plusMinusPoints: number
+    points: number
+    pointsFastBreak: number
+    pointsInThePaint: number
+    pointsSecondChance: number
+    reboundsDefensive: number
+    reboundsOffensive: number
+    reboundsTotal: number
+    steals: number
+    threePointersAttempted: number
+    threePointersMade: number
+    threePointersPercentage: number
+    turnovers: number
+    twoPointersAttempted: number
+    twoPointersMade: number
+    twoPointersPercentage: number
+  }
+}
+
+export type TeamStats = {
+  assists: number
+  assistsTurnoverRatio: number
+  benchPoints: number
+  biggestLead: number
+  biggestScoringRun: number
+  blocks: number
+  blocksReceived: number
+  fastBreakPointsAttempted: number
+  fastBreakPointsMade: number
+  fastBreakPointsPercentage: number
+  fieldGoalsAttempted: number
+  fieldGoalsMade: number
+  fieldGoalsPercentage: number
+  foulsOffensive: number
+  foulsDrawn: number
+  foulsPersonal: number
+  foulsTeam: number
+  foulsTechnical: number
+  foulsTeamTechnical: number
+  freeThrowsAttempted: number
+  freeThrowsMade: number
+  freeThrowsPercentage: number
+  leadChanges: number
+  minutes: string
+  minutesCalculated: string
+  points: number
+  pointsAgainst: number
+  pointsFastBreak: number
+  pointsFromTurnovers: number
+  pointsInThePaint: number
+  pointsInThePaintAttempted: number
+  pointsInThePaintMade: number
+  pointsInThePaintPercentage: number
+  pointsSecondChance: number
+  reboundsDefensive: number
+  reboundsOffensive: number
+  reboundsPersonal: number
+  reboundsTeam: number
+  reboundsTeamDefensive: number
+  reboundsTeamOffensive: number
+  reboundsTotal: number
+  secondChancePointsAttempted: number
+  secondChancePointsMade: number
+  secondChancePointsPercentage: number
+  steals: number
+  threePointersAttempted: number
+  threePointersMade: number
+  threePointersPercentage: number
+  timeLeading: string
+  timesTied: number
+  trueShootingAttempts: number
+  trueShootingPercentage: number
+  turnovers: number
+  turnoversTeam: number
+  turnoversTotal: number
+  twoPointersAttempted: number
+  twoPointersMade: number
+  twoPointersPercentage: number
+}
+
+export type PeriodScore = {
+  period: number
+  periodType: string
+  score: number
+}
+
 export type NBATeam = {
   teamId: number
   teamName: string
@@ -9,6 +124,9 @@ export type NBATeam = {
   score: number
   wins: number
   losses: number
+  periods?: PeriodScore[]
+  players?: PlayerStats[]
+  statistics?: TeamStats
 }
 
 export type NBAGame = {
@@ -127,6 +245,7 @@ export async function getGameById(id: string): Promise<NBAGame> {
   const json = await res.json()
   const g = json.game
   if (!g) throw new Error('Game not found')
+
   const toTeam = (t: any): NBATeam => ({
     teamId: Number(t.teamId) || 0,
     teamName: t.teamName,
@@ -135,7 +254,11 @@ export async function getGameById(id: string): Promise<NBAGame> {
     score: Number(t.score) || 0,
     wins: Number(t.wins) || 0,
     losses: Number(t.losses) || 0,
+    periods: t.periods || [],
+    players: t.players || [],
+    statistics: t.statistics || undefined,
   })
+
   const periodVal = typeof g.period === 'number' ? g.period : (g.period?.current ?? 0)
   return {
     gameId: id,
