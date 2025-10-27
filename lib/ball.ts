@@ -150,6 +150,19 @@ export type TodayGame = {
   gameClock?: string
 }
 
+export function formatGameClock(clock?: string): string {
+  if (!clock) return ''
+  if (!clock.startsWith('PT')) return clock
+  const match = clock.match(/^PT(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/)
+  if (!match) return clock
+  const minutesPart = Number(match[1] || 0)
+  const secondsPartRaw = Number(match[2] || 0)
+  const totalSeconds = minutesPart * 60 + Math.floor(secondsPartRaw)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
 function formatTeam(team: NBATeam): string {
   return `${team.teamCity} ${team.teamName}`
 }
@@ -181,7 +194,7 @@ export async function getTodayGames(): Promise<TodayGame[]> {
       awayScore: g.awayTeam.score || 0,
       status: formatStatus(g.gameStatus, g.gameStatusText),
       period: g.period || 0,
-      gameClock: g.gameClock || '',
+      gameClock: formatGameClock(g.gameClock),
     }))
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
@@ -220,7 +233,7 @@ export async function getGamesByDate(date: string): Promise<TodayGame[]> {
       awayScore: g.awayTeam.score || 0,
       status: formatStatus(g.gameStatus, g.gameStatusText),
       period: g.period || 0,
-      gameClock: (g as any).gameClock || '',
+      gameClock: formatGameClock((g as any).gameClock),
     }))
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
@@ -265,7 +278,7 @@ export async function getGameById(id: string): Promise<NBAGame> {
     gameStatus: Number(g.gameStatus) || 0,
     gameStatusText: String(g.gameStatusText || ''),
     period: periodVal,
-    gameClock: String(g.gameClock || ''),
+    gameClock: formatGameClock(String(g.gameClock || '')),
     homeTeam: toTeam(g.homeTeam),
     awayTeam: toTeam(g.awayTeam),
   }

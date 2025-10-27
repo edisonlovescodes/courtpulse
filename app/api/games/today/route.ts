@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTodayGames, getGameById, isLiveStatus } from '@/lib/ball'
+import { getTodayGames, getGameById, isLiveStatus, formatGameClock } from '@/lib/ball'
 import { processGameNotifications } from '@/lib/notifications'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +28,7 @@ export async function GET() {
             awayScore: g.awayTeam.score || 0,
             period: g.period || 0,
             status: 'Live',
-            gameClock: g.gameClock || '',
+            gameClock: formatGameClock(g.gameClock || ''),
           })
         }
       })
