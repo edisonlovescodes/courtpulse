@@ -31,6 +31,7 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [simulating, setSimulating] = useState(false)
 
   // Form state
   const [enabled, setEnabled] = useState(false)
@@ -146,6 +147,23 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
         throw new Error(err?.error || `Failed to simulate (${res.status})`)
       }
       setMessage('Test notification sent to channel')
+    } catch (e: any) {
+      setMessage(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleSimulate = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      const res = await fetch(simulating ? '/api/dev/simulate/stop' : '/api/dev/simulate/start', {
+        method: 'POST',
+      })
+      if (!res.ok) throw new Error('Failed to toggle simulation')
+      setSimulating(!simulating)
+      setMessage(simulating ? 'Simulation disabled' : 'Simulation enabled for 10 minutes')
     } catch (e: any) {
       setMessage(`Error: ${e.message}`)
     } finally {
@@ -382,6 +400,12 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
           <button onClick={() => simulate('game_end')} className="px-4 py-2 border-2 border-black/10 rounded-lg hover:border-brand-accent/50">Final</button>
         </div>
         <p className="text-xs text-gray-500">Uses the selected channel above (or saved channel if none selected).</p>
+        <div className="pt-4 flex items-center gap-3">
+          <button onClick={toggleSimulate} className="px-4 py-2 border-2 border-black/10 rounded-lg hover:border-brand-accent/50">
+            {simulating ? 'Disable Live Simulation' : 'Enable Live Simulation'}
+          </button>
+          <span className="text-xs text-gray-500">When enabled, Today’s games and details use mock live data for ~10 minutes.</span>
+        </div>
       </div>
     </main>
   )

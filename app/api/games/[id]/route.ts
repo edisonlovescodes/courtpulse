@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { getAuthFromHeaders } from '@/lib/whop'
 import { getGameById, isLiveStatus, type NBAGame } from '@/lib/ball'
 import { canUnlockGame, logGameView, unlockGame } from '@/lib/limits'
@@ -25,6 +26,34 @@ export async function GET(req: Request, { params }: any) {
   const { userId, plan } = await getAuthFromHeaders(req.headers)
 
   try {
+    const store = await cookies()
+    const sim = store.get('CP_SIM')?.value
+    if (sim === '1' && gameId.startsWith('sim_')) {
+      const status = 'Live'
+      return NextResponse.json({
+        id: gameId,
+        homeTeam: 'Los Angeles Lakers',
+        awayTeam: 'Boston Celtics',
+        homeScore: 78,
+        awayScore: 75,
+        status,
+        period: 3,
+        gameClock: '03:21',
+        allowed: true,
+        homeTeamDetails: {
+          teamTricode: 'LAL', wins: 10, losses: 5, periods: [], players: [], statistics: { } as any,
+        },
+        awayTeamDetails: {
+          teamTricode: 'BOS', wins: 12, losses: 3, periods: [], players: [], statistics: { } as any,
+        },
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+    }
     const game = await getGameById(gameId)
     const status = formatStatus(game)
     const live = isLiveStatus(status)
