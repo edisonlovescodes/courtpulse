@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server'
 import { getTodayGames, getGameById, isLiveStatus } from '@/lib/ball'
+import { getAllActiveTestGames, testGameToTodayGame } from '@/lib/test-game-state'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
     const games = await getTodayGames()
+
+    // Add test games to the list
+    const testSessions = await getAllActiveTestGames()
+    for (const session of testSessions) {
+      const testGame = testGameToTodayGame(session)
+      if (testGame) {
+        games.unshift(testGame) // Add to beginning so it appears first
+      }
+    }
+
     // For live games, refresh scores from per-game boxscore for maximum freshness
     const liveIds = games.filter(g => isLiveStatus(g.status)).map(g => g.id)
     if (liveIds.length > 0) {

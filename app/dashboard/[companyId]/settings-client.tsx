@@ -153,6 +153,55 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
     }
   }
 
+  // Start test game
+  const startTestGame = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      const res = await fetch('/api/test/start-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+        body: JSON.stringify({
+          companyId,
+          gameKey: 'lakers-celtics',
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({} as any))
+        throw new Error(err?.error || `Failed to start test game (${res.status})`)
+      }
+      setMessage('Test game started! Check the Live Games section on the home page.')
+    } catch (e: any) {
+      setMessage(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Stop test game
+  const stopTestGame = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      const res = await fetch('/api/test/stop-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+        body: JSON.stringify({
+          companyId,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({} as any))
+        throw new Error(err?.error || `Failed to stop test game (${res.status})`)
+      }
+      setMessage('Test game stopped')
+    } catch (e: any) {
+      setMessage(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
 
   const toggleGame = (gameId: string) => {
     setTrackedGames(prev =>
@@ -383,7 +432,32 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
           <button onClick={() => simulate('game_end')} className="px-4 py-2 border-2 border-black/10 rounded-lg hover:border-brand-accent/50">Final</button>
         </div>
         <p className="text-xs text-gray-500">Uses the selected channel above (or saved channel if none selected).</p>
-        
+
+      </div>
+
+      {/* Test Game Session */}
+      <div className="bg-white rounded-2xl border-2 border-black/10 p-6 space-y-3">
+        <h3 className="font-bold mb-1">Test Game Simulator</h3>
+        <p className="text-sm text-gray-600 mb-3">Start a live test game that appears in your feed and triggers real notifications</p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={startTestGame}
+            disabled={saving}
+            className="px-6 py-3 bg-brand-accent text-white font-bold rounded-lg hover:bg-brand-accent/90 disabled:opacity-50"
+          >
+            {saving ? 'Starting...' : 'Start Test Game'}
+          </button>
+          <button
+            onClick={stopTestGame}
+            disabled={saving}
+            className="px-6 py-3 border-2 border-black/10 rounded-lg hover:border-red-500 hover:text-red-500 disabled:opacity-50"
+          >
+            Stop Test Game
+          </button>
+        </div>
+        <p className="text-xs text-gray-500">
+          Test game starts at 8:35 AM Oct 27, 2025 and progresses in real-time. It will appear in the Live Games section and trigger notifications based on your settings above.
+        </p>
       </div>
     </main>
   )

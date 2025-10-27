@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
-import { getGameById } from './ball'
+import { getGameById, type NBAGame } from './ball'
 import { createMessage, formatGameUpdateMessage } from './whop-api'
+import { getTestGameById, testGameToNBAGame, isTestGameId } from './test-game-state'
 
 type EventType = 'score' | 'quarter_end' | 'game_start' | 'game_end'
 
@@ -55,8 +56,22 @@ async function processGameNotification(
 ) {
   if (!settings.channelId) return
 
-  // Fetch current game data
-  const game = await getGameById(gameId)
+  // Fetch current game data (from test game or NBA API)
+  let game: NBAGame | null = null
+
+  // Check if this is a test game
+  if (isTestGameId(gameId)) {
+    const testSession = await getTestGameById(gameId)
+    if (testSession) {
+      game = testGameToNBAGame(testSession)
+    }
+  }
+
+  // If not a test game (or test game not found), fetch from NBA API
+  if (!game) {
+    game = await getGameById(gameId)
+  }
+
   const status = formatGameStatus(game.gameStatus, game.gameStatusText)
   const isLive = game.gameStatus === 2
 

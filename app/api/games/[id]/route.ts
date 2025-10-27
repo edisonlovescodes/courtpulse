@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getAuthFromHeaders } from '@/lib/whop'
 import { getGameById, isLiveStatus, type NBAGame } from '@/lib/ball'
 import { canUnlockGame, logGameView, unlockGame } from '@/lib/limits'
+import { getTestGameById, testGameToNBAGame, isTestGameId } from '@/lib/test-game-state'
 
 // Force dynamic rendering - no caching
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,19 @@ export async function GET(req: Request, { params }: any) {
   const { userId, plan } = await getAuthFromHeaders(req.headers)
 
   try {
-    const game = await getGameById(gameId)
+    // Check if this is a test game
+    let game: NBAGame | null = null
+    if (isTestGameId(gameId)) {
+      const testSession = await getTestGameById(gameId)
+      if (testSession) {
+        game = testGameToNBAGame(testSession)
+      }
+    }
+
+    // If not a test game (or test game not found), fetch from NBA API
+    if (!game) {
+      game = await getGameById(gameId)
+    }
     const status = formatStatus(game)
     const live = isLiveStatus(status)
 
