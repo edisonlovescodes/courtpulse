@@ -4,6 +4,10 @@ import { redirect } from 'next/navigation'
 import { whopSdk } from '@/lib/whop-sdk'
 import { createAdminSessionToken } from '@/lib/signing'
 
+// Force dynamic rendering - no caching
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getCompanyIdForExperience(experienceId: string): Promise<string | null> {
   const apiKey = process.env.WHOP_API_KEY
   if (!apiKey) return null
