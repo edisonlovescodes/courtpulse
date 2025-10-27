@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     let allow = await isAdminForCompany(req.headers as any, companyId)
     if (!allow) {
       const store = await cookies()
-      const token = store.get('CP_ADMIN')?.value
+      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
       const secret = process.env.WHOP_APP_SECRET
       const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
       if (!(v.valid && v.companyId === companyId)) {
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
     let allow = await isAdminForCompany(req.headers as any, companyId)
     if (!allow) {
       const store = await cookies()
-      const token = store.get('CP_ADMIN')?.value
+      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
       const secret = process.env.WHOP_APP_SECRET
       const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
       if (!(v.valid && v.companyId === companyId)) {
