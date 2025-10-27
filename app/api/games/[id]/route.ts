@@ -98,6 +98,11 @@ export async function GET(req: Request, { params }: any) {
       }
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Failed' }, { status: 500 })
+    console.error('Error fetching game:', gameId, e)
+    // Better error message for scheduled games
+    return NextResponse.json({
+      error: 'This game has not started yet. Detailed stats will be available once the game begins.',
+      gameId,
+    }, { status: 404 })
   }
 }
