@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { isAdminFromHeaders, getCompanyIdFromHeaders } from '@/lib/whop'
+import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,9 +10,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: Request) {
   try {
-    if (!isAdminFromHeaders(req.headers)) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
+    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
 
@@ -23,11 +21,12 @@ export async function GET(req: Request) {
       )
     }
 
-    // Enforce company boundary if header provides one
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    // Enforce company boundary if header provides one and verify admin
     if (headerCompanyId && headerCompanyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
+    const allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
     let settings = await prisma.notificationSettings.findUnique({
       where: { companyId },
@@ -67,9 +66,7 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    if (!isAdminFromHeaders(req.headers)) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
+    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
     const body = await req.json()
     const {
       companyId,
@@ -90,11 +87,12 @@ export async function POST(req: Request) {
       )
     }
 
-    // Enforce company boundary if header provides one
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    // Enforce company boundary if header provides one and verify admin
     if (headerCompanyId && headerCompanyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
+    const allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
     // Convert array to comma-separated string for storage
     const trackedGamesStr = Array.isArray(trackedGames) ? trackedGames.join(',') : (trackedGames || '')

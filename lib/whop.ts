@@ -20,6 +20,7 @@ const planMap = (input?: string | null): Plan => {
 
 // Placeholder: in production, verify Whop-Signed-Token using WHOP_APP_SECRET
 import { verifySignedToken } from './signing'
+import { whopSdk } from '@/lib/whop-sdk'
 
 function readPlanMapping(): Record<string, Plan> {
   // Map product IDs (or plan slugs) to our internal plan names
@@ -143,4 +144,27 @@ export function getCompanyIdFromHeaders(headers: HeadersLike): string | null {
     ''
   if (fromHeader) return fromHeader
   return process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
+}
+
+// API-backed admin check using Whop SDK for a specific company
+export async function isAdminForCompany(headersLike: HeadersLike, companyId: string): Promise<boolean> {
+  // Dev-only override for local testing
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
+  ) {
+    return true
+  }
+  try {
+    // Verify the current user from the iframe headers
+    const { userId } = await whopSdk.verifyUserToken(headersLike as any)
+    if (!userId) return false
+    const { accessLevel } = await whopSdk.access.checkIfUserHasAccessToCompany({
+      companyId,
+      userId,
+    })
+    return accessLevel === 'admin'
+  } catch {
+    return false
+  }
 }

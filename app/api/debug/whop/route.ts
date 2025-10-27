@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCompanyIdFromHeaders, isAdminFromHeaders } from '@/lib/whop'
+import { whopSdk } from '@/lib/whop-sdk'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,11 +20,23 @@ export async function GET(req: Request) {
   const isAdmin = isAdminFromHeaders(h as any)
   const companyId = getCompanyIdFromHeaders(h as any)
 
+  let sdkAdmin: boolean | null = null
+  let accessLevel: string | null = null
+  try {
+    if (companyId) {
+      const { userId } = await whopSdk.verifyUserToken(h as any)
+      const res = await whopSdk.access.checkIfUserHasAccessToCompany({ companyId, userId })
+      accessLevel = res.accessLevel
+      sdkAdmin = res.accessLevel === 'admin'
+    }
+  } catch {}
+
   return NextResponse.json({
     isAdmin,
     companyId,
     headers: headersOut,
+    sdkAdmin,
+    accessLevel,
     note: 'Open this inside Whop as an owner/admin to verify headers and detection.'
   })
 }
-

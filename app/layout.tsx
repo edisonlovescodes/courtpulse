@@ -2,7 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { isAdminFromHeaders } from '@/lib/whop'
+import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
 
 export const metadata = {
   title: 'CourtPulse - NBA Live Scores',
@@ -11,7 +11,8 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
-  const isAdmin = isAdminFromHeaders(hdrs)
+  const companyId = getCompanyIdFromHeaders(hdrs)
+  const isAdmin = companyId ? await isAdminForCompany(hdrs as any, companyId) : false
   return (
     <html lang="en">
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">
@@ -31,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   </div>
                 </div>
               </Link>
-              {/* Admin-only settings cog */}
+              {/* Admin-only settings cog (requires company context) */}
               {isAdmin ? (
                 <Link
                   href="/dashboard"

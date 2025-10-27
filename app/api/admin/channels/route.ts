@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { listChatChannels } from '@/lib/whop-api'
-import { isAdminFromHeaders, getCompanyIdFromHeaders } from '@/lib/whop'
+import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,9 +10,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: Request) {
   try {
-    if (!isAdminFromHeaders(req.headers)) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
+    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
 
@@ -23,14 +21,12 @@ export async function GET(req: Request) {
       )
     }
 
-    // Enforce company boundary if header provides one
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    // Enforce company boundary if header provides one and verify admin
     if (headerCompanyId && headerCompanyId !== companyId) {
-      return NextResponse.json(
-        { error: 'company mismatch' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
+    const allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
     const channels = await listChatChannels(companyId)
 
