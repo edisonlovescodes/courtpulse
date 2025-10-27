@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getTodayGames, type TodayGame } from '@/lib/ball'
+import type { TodayGame } from '@/lib/ball'
 
 type Channel = {
   id: string
@@ -43,7 +43,11 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
 
   // Auto-load settings on mount
   useEffect(() => {
-    getTodayGames().then(setGames)
+    // Load today's games via our API to avoid CORS issues
+    fetch('/api/games/today', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`)))
+      .then((data: { games: TodayGame[] }) => setGames(data.games || []))
+      .catch(() => setGames([]))
     loadSettings()
   }, [companyId])
 
