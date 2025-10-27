@@ -10,11 +10,5 @@
         { "key": "X-Frame-Options", "value": "ALLOW-FROM https://whop.com" }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/notifications",
-      "schedule": "* * * * *"
-    }
   ]
 }
