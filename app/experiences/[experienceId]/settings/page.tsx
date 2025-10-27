@@ -57,7 +57,7 @@ export default async function ExperienceSettingsPage(props: { params: Promise<{ 
     if (userIdHeader) authHeaders['X-Whop-User-Id'] = userIdHeader
     authHeaders['X-Whop-Company-Id'] = companyId
 
-    return <DashboardSettings companyId={companyId} authHeaders={authHeaders} />
+    return <DashboardSettings companyId={companyId} authHeaders={authHeaders} backHref={`/experiences/${experienceId}`} />
   } catch {
     redirect('/')
   }

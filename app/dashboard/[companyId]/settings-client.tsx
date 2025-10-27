@@ -24,7 +24,7 @@ type Settings = {
   trackedGames: string[]
 }
 
-export default function DashboardSettings({ companyId, authHeaders, adminToken }: { companyId: string, authHeaders?: Record<string, string>, adminToken?: string }) {
+export default function DashboardSettings({ companyId, authHeaders, adminToken, backHref }: { companyId: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
@@ -150,7 +150,7 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken }
           <h1 className="text-3xl font-bold">Game Notifications</h1>
           <p className="text-sm text-gray-600 mt-1">Configure live NBA score updates for your community</p>
         </div>
-        <Link href="/" className="text-sm font-medium hover:text-brand-accent">
+        <Link href={backHref || '/'} className="text-sm font-medium hover:text-brand-accent">
           ← View Games
         </Link>
       </div>
