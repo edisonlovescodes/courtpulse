@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server'
 import { getTodayGames, getGameById, isLiveStatus } from '@/lib/ball'
+import { processGameNotifications } from '@/lib/notifications'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    // Opportunistic notifier: run notification processing on every scoreboard poll.
+    // If cron also runs, GameNotificationState prevents duplicates.
+    try {
+      await processGameNotifications()
+    } catch (err) {
+      console.error('processGameNotifications (inline) failed:', err)
+    }
+
     const games = await getTodayGames()
     // For live games, refresh scores from per-game boxscore for maximum freshness
     const liveIds = games.filter(g => isLiveStatus(g.status)).map(g => g.id)
