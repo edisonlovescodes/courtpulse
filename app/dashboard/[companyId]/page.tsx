@@ -19,7 +19,8 @@ export default async function CompanyDashboard(props: { params: Promise<{ compan
   if (userId && secret) {
     const token = createAdminSessionToken(userId, params.companyId, secret)
     const store = await cookies()
-    store.set('CP_ADMIN', token, { httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: 600 })
+    // SameSite=None so cookie is sent from Whop iframe (cross-site context)
+    store.set('CP_ADMIN', token, { httpOnly: true, sameSite: 'none', secure: true, path: '/', maxAge: 600 })
   }
   const signedToken = hdrs.get('Whop-Signed-Token') || hdrs.get('X-Whop-Signed-Token') || ''
   const userIdHeader = hdrs.get('X-Whop-User-Id') || hdrs.get('Whop-User-Id') || ''
