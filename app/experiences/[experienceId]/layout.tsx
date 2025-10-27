@@ -49,7 +49,7 @@ export default async function ExperienceLayout({
       {showCog && targetCompanyId && (
         <div className="fixed top-4 right-4 z-40">
           <Link
-            href={`/dashboard/${targetCompanyId}`}
+            href={`/experiences/${experienceId}/settings`}
             aria-label="Settings"
             className="inline-flex items-center justify-center w-10 h-10 rounded-lg border-2 border-black/10 bg-white hover:border-black/20 shadow-sm"
             title={`Manage settings for ${targetCompanyId}`}
@@ -65,4 +65,3 @@ export default async function ExperienceLayout({
     </>
   )
 }
-
