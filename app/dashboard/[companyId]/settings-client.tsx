@@ -24,7 +24,7 @@ type Settings = {
   trackedGames: string[]
 }
 
-export default function DashboardSettings({ companyId }: { companyId: string }) {
+export default function DashboardSettings({ companyId, authHeaders }: { companyId: string, authHeaders?: Record<string, string> }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
@@ -53,13 +53,17 @@ export default function DashboardSettings({ companyId }: { companyId: string }) 
 
     try {
       // Load channels
-      const channelsRes = await fetch(`/api/admin/channels?company_id=${companyId}`)
+      const channelsRes = await fetch(`/api/admin/channels?company_id=${companyId}` , {
+        headers: authHeaders,
+      })
       if (!channelsRes.ok) throw new Error('Failed to load channels')
       const channelsData = await channelsRes.json()
       setChannels(channelsData.channels || [])
 
       // Load settings
-      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}`)
+      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}`, {
+        headers: authHeaders,
+      })
       if (!settingsRes.ok) throw new Error('Failed to load settings')
       const settingsData = await settingsRes.json()
       const s = settingsData.settings
@@ -90,7 +94,7 @@ export default function DashboardSettings({ companyId }: { companyId: string }) 
 
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}) },
         body: JSON.stringify({
           companyId,
           enabled,

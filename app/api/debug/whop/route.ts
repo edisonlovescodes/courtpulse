@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     'X-Whop-User-Id': h.get('X-Whop-User-Id') || h.get('Whop-User-Id') || null,
     'X-Whop-Role': h.get('X-Whop-Role') || h.get('Whop-Role') || null,
     'X-Whop-Is-Admin': h.get('X-Whop-Is-Admin') || h.get('Whop-Is-Admin') || null,
+    'X-Whop-Experience-Id': h.get('X-Whop-Experience-Id') || h.get('Whop-Experience-Id') || null,
     'X-Whop-Company-Id':
       h.get('X-Whop-Company-Id') || h.get('Whop-Company-Id') || h.get('X-Company-Id') || null,
     'Whop-Signed-Token':
