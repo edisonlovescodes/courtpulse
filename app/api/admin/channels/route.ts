@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { listChatChannels } from '@/lib/whop-api'
 import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import { cookies } from 'next/headers'
+import { verifyAdminSessionToken } from '@/lib/signing'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,8 +27,17 @@ export async function GET(req: Request) {
     if (headerCompanyId && headerCompanyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
-    const allow = await isAdminForCompany(req.headers as any, companyId)
-    if (!allow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    let allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow) {
+      const store = await cookies()
+      const token = store.get('CP_ADMIN')?.value
+      const secret = process.env.WHOP_APP_SECRET
+      const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
+      if (!(v.valid && v.companyId === companyId)) {
+        return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+      }
+      allow = true
+    }
 
     const channels = await listChatChannels(companyId)
 

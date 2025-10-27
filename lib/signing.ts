@@ -28,3 +28,34 @@ export function verifySignedToken(token: string, secret?: string): { valid: bool
   }
 }
 
+// App-internal short-lived admin session token
+// Format: base64url(`${userId}:${companyId}:${timestamp}`) + '.' + HMAC-SHA256 over the base64 part
+export function createAdminSessionToken(userId: string, companyId: string, secret: string): string {
+  const ts = Math.floor(Date.now() / 1000)
+  const payload = Buffer.from(`${userId}:${companyId}:${ts}`).toString('base64url')
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex')
+  return `${payload}.${sig}`
+}
+
+export function verifyAdminSessionToken(
+  token: string,
+  secret?: string,
+): { valid: boolean; userId?: string; companyId?: string } {
+  try {
+    if (!token || !secret) return { valid: false }
+    const [payload, sig] = token.split('.')
+    if (!payload || !sig) return { valid: false }
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex')
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return { valid: false }
+    const decoded = Buffer.from(payload, 'base64url').toString('utf8')
+    const [userId, companyId, tsStr] = decoded.split(':')
+    const ts = Number(tsStr)
+    if (!userId || !companyId || !Number.isFinite(ts)) return { valid: false }
+    // 10-minute expiry
+    const now = Math.floor(Date.now() / 1000)
+    if (now - ts > 600) return { valid: false }
+    return { valid: true, userId, companyId }
+  } catch {
+    return { valid: false }
+  }
+}
