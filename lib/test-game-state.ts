@@ -23,6 +23,15 @@ export async function startTestGame(companyId: string, gameKey: TestGameKey): Pr
 
   const snapshot = getTestGameSnapshot(gameKey)
 
+  // Delete any old inactive sessions to avoid unique constraint issues
+  await prisma.testGameSession.deleteMany({
+    where: {
+      companyId,
+      gameId: snapshot.gameId,
+      isActive: false,
+    },
+  })
+
   const session = await prisma.testGameSession.create({
     data: {
       gameId: snapshot.gameId,
