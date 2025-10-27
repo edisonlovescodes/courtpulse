@@ -95,6 +95,13 @@ export async function getAuthFromHeaders(headers: Headers): Promise<AuthContext>
 type HeadersLike = { get(name: string): string | null }
 
 export function isAdminFromHeaders(headers: HeadersLike): boolean {
+  // Dev-only override for local testing
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
+  ) {
+    return true
+  }
   const role =
     headers.get('X-Whop-Role') ||
     headers.get('Whop-Role') ||
