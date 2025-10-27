@@ -90,3 +90,50 @@ export async function getAuthFromHeaders(headers: Headers): Promise<AuthContext>
 
   return { userId, plan }
 }
+
+// Determine if the current user is an admin/owner of the Whop app/company
+type HeadersLike = { get(name: string): string | null }
+
+export function isAdminFromHeaders(headers: HeadersLike): boolean {
+  const role =
+    headers.get('X-Whop-Role') ||
+    headers.get('Whop-Role') ||
+    headers.get('X-Whop-User-Role') ||
+    ''
+
+  // If platform provides role headers
+  if (role) {
+    const r = role.toLowerCase()
+    if (r === 'admin' || r === 'owner') return true
+  }
+
+  // Allowlist via env var (CSV of user IDs)
+  const adminIds = (process.env.WHOP_ADMIN_USER_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const userId = headers.get('X-Whop-User-Id') || headers.get('Whop-User-Id') || ''
+  if (userId && adminIds.includes(userId)) return true
+
+  // Fallback: treat the configured agent/owner as admin
+  const agentId = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID
+  if (agentId && userId && userId === agentId) return true
+
+  // Optional boolean hint
+  const isAdminHeader = headers.get('X-Whop-Is-Admin') || headers.get('Whop-Is-Admin')
+  if (isAdminHeader && ['1', 'true', 'yes'].includes(isAdminHeader.toLowerCase())) return true
+
+  return false
+}
+
+// Extract the current Whop company ID from headers, else fall back to env
+export function getCompanyIdFromHeaders(headers: HeadersLike): string | null {
+  const fromHeader =
+    headers.get('X-Whop-Company-Id') ||
+    headers.get('Whop-Company-Id') ||
+    headers.get('X-Company-Id') ||
+    ''
+  if (fromHeader) return fromHeader
+  return process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { isAdminFromHeaders, getCompanyIdFromHeaders } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: Request) {
   try {
+    if (!isAdminFromHeaders(req.headers)) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
 
@@ -17,6 +21,12 @@ export async function GET(req: Request) {
         { error: 'company_id is required' },
         { status: 400 }
       )
+    }
+
+    // Enforce company boundary if header provides one
+    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    if (headerCompanyId && headerCompanyId !== companyId) {
+      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
     let settings = await prisma.notificationSettings.findUnique({
@@ -57,6 +67,9 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
+    if (!isAdminFromHeaders(req.headers)) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
     const body = await req.json()
     const {
       companyId,
@@ -75,6 +88,12 @@ export async function POST(req: Request) {
         { error: 'companyId is required' },
         { status: 400 }
       )
+    }
+
+    // Enforce company boundary if header provides one
+    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    if (headerCompanyId && headerCompanyId !== companyId) {
+      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
     // Convert array to comma-separated string for storage

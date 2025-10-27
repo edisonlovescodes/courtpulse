@@ -1,13 +1,17 @@
 import './globals.css'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { headers } from 'next/headers'
+import { isAdminFromHeaders } from '@/lib/whop'
 
 export const metadata = {
   title: 'CourtPulse - NBA Live Scores',
   description: 'Real-time NBA scores for your community',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const hdrs = await headers()
+  const isAdmin = isAdminFromHeaders(hdrs)
   return (
     <html lang="en">
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">
@@ -27,7 +31,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   </div>
                 </div>
               </Link>
-              {/* Pricing button hidden for now - will add later */}
+              {/* Admin-only settings cog */}
+              {isAdmin ? (
+                <Link
+                  href="/dashboard"
+                  aria-label="Settings"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border-2 border-black/10 hover:border-black/20"
+                  title="Manage settings"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                  </svg>
+                </Link>
+              ) : (
+                <span />
+              )}
             </nav>
           </header>
           <main>{children}</main>
@@ -42,4 +61,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   )
 }
-
