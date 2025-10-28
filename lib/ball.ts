@@ -335,33 +335,24 @@ export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
 
-// Calculate season averages from ALL completed games this season
+// Calculate season averages from recent completed games
+// Optimized: Only fetch last 30 days to avoid serverless timeouts
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
   try {
     const games: NBAGame[] = []
     const today = new Date()
 
-    // NBA 2024-25 season started October 22, 2024
-    const seasonStart = new Date('2024-10-22')
-    const currentDate = new Date(today)
-
-    // Calculate days since season start
-    const daysSinceStart = Math.floor((currentDate.getTime() - seasonStart.getTime()) / (1000 * 60 * 60 * 24))
-
-    // Fetch ALL games from season start to today
-    for (let i = 0; i <= daysSinceStart; i++) {
-      const date = new Date(seasonStart)
-      date.setDate(date.getDate() + i)
+    // Fetch last 30 days (much faster, still gets good sample size)
+    // Each team plays ~82 games in ~180 days, so 30 days = ~13-14 games
+    for (let i = 0; i < 30 && games.length < 20; i++) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
 
       try {
         const url = `${NBA_API_BASE}/scoreboard/${dateStr}/scoreboard.json`
         const res = await fetch(url, {
-          cache: 'no-store',
-          next: { revalidate: 3600 },
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-          }
+          next: { revalidate: 3600 }, // Cache for 1 hour
         })
         if (!res.ok) continue
 
@@ -375,6 +366,9 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
           g.homeTeam.statistics && g.awayTeam.statistics
         )
         games.push(...teamGames)
+
+        // Stop early if we have enough games for good average
+        if (games.length >= 15) break
       } catch {
         continue
       }
