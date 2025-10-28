@@ -278,11 +278,14 @@ export default function Client({ id }: { id: string }) {
                     unit?: string
                     inverse?: boolean
                   }) => {
-                    const maxValue = Math.max(awayStat, homeStat)
-                    const awayPct = (awayStat / maxValue) * 100
-                    const homePct = (homeStat / maxValue) * 100
                     const awayBetter = inverse ? awayStat < homeStat : awayStat > homeStat
                     const homeBetter = inverse ? homeStat < awayStat : homeStat > awayStat
+
+                    // Calculate the ratio for the shared bar
+                    // Total of both stats determines the split
+                    const total = awayStat + homeStat
+                    const awayPercentage = (awayStat / total) * 100
+                    const homePercentage = (homeStat / total) * 100
 
                     return (
                       <div className="mb-4">
@@ -291,23 +294,28 @@ export default function Client({ id }: { id: string }) {
                             {awayStat.toFixed(1)}{unit}
                           </span>
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{label}</span>
-                          <span className={`text-sm font-bold ${homeBetter ? 'text-blue-600' : 'text-gray-500'}`}>
+                          <span className={`text-sm font-bold ${homeBetter ? 'text-purple-600' : 'text-gray-500'}`}>
                             {homeStat.toFixed(1)}{unit}
                           </span>
                         </div>
-                        <div className="flex gap-2">
-                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-full ${awayBetter ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'}`}
-                              style={{ width: `${awayPct}%` }}
-                            />
-                          </div>
-                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-full ${homeBetter ? 'bg-gradient-to-r from-blue-600 to-blue-500' : 'bg-gray-300'}`}
-                              style={{ width: `${homePct}%`, marginLeft: 'auto' }}
-                            />
-                          </div>
+
+                        {/* Single shared horizontal bar */}
+                        <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                          {/* Away team fill (left side) */}
+                          <div
+                            className={`absolute left-0 top-0 h-full ${awayBetter ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-gray-400 to-gray-500'}`}
+                            style={{ width: `${awayPercentage}%` }}
+                          />
+                          {/* Home team fill (right side) */}
+                          <div
+                            className={`absolute right-0 top-0 h-full ${homeBetter ? 'bg-gradient-to-l from-purple-500 to-purple-600' : 'bg-gradient-to-l from-gray-400 to-gray-500'}`}
+                            style={{ width: `${homePercentage}%` }}
+                          />
+                          {/* White divider line at the split point */}
+                          <div
+                            className="absolute top-0 h-full w-0.5 bg-white shadow-sm"
+                            style={{ left: `${awayPercentage}%`, transform: 'translateX(-50%)' }}
+                          />
                         </div>
                       </div>
                     )
