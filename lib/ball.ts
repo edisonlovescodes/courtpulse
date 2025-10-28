@@ -335,22 +335,34 @@ export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
 
-// Calculate season averages from recent completed games
+// Calculate season averages from ALL completed games this season
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
   try {
-    // Fetch games from last 30 days to calculate averages
     const games: NBAGame[] = []
     const today = new Date()
 
-    // Check last 30 days for completed games with this team
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
+    // NBA 2024-25 season started October 22, 2024
+    const seasonStart = new Date('2024-10-22')
+    const currentDate = new Date(today)
+
+    // Calculate days since season start
+    const daysSinceStart = Math.floor((currentDate.getTime() - seasonStart.getTime()) / (1000 * 60 * 60 * 24))
+
+    // Fetch ALL games from season start to today
+    for (let i = 0; i <= daysSinceStart; i++) {
+      const date = new Date(seasonStart)
+      date.setDate(date.getDate() + i)
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
 
       try {
         const url = `${NBA_API_BASE}/scoreboard/${dateStr}/scoreboard.json`
-        const res = await fetch(url, { cache: 'no-store', next: { revalidate: 3600 } })
+        const res = await fetch(url, {
+          cache: 'no-store',
+          next: { revalidate: 3600 },
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          }
+        })
         if (!res.ok) continue
 
         const json = await res.json()
@@ -363,16 +375,19 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
           g.homeTeam.statistics && g.awayTeam.statistics
         )
         games.push(...teamGames)
-
-        if (games.length >= 5) break // Stop after finding 5 games
       } catch {
         continue
       }
     }
 
-    if (games.length === 0) return null
+    if (games.length === 0) {
+      console.log(`No completed games found for team ${teamId}`)
+      return null
+    }
 
-    // Calculate averages
+    console.log(`Found ${games.length} completed games for team ${teamId} this season`)
+
+    // Calculate averages from ALL games
     let totalPPG = 0, totalPAPG = 0, totalFG = 0, totalFGA = 0
     let total3P = 0, total3PA = 0, totalFT = 0, totalFTA = 0
     let totalREB = 0, totalAST = 0, totalSTL = 0, totalBLK = 0, totalTOV = 0
@@ -413,7 +428,7 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
       tpg: Math.round((totalTOV / gameCount) * 10) / 10,
     }
   } catch (e) {
-    console.error('Error calculating team season stats:', e)
+    console.error('Error calculating team season stats for team', teamId, ':', e)
     return null
   }
 }

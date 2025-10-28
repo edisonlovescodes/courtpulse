@@ -23,7 +23,7 @@ export async function GET(
         teamId,
         stats: realStats,
         source: 'calculated',
-        message: 'Stats calculated from recent games'
+        message: 'Stats calculated from all season games'
       })
     }
 
