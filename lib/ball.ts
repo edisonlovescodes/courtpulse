@@ -350,7 +350,7 @@ export type EstimatedTeamStats = {
   tpg: number // turnovers per game
 }
 
-export function estimateTeamStats(wins: number, losses: number): EstimatedTeamStats {
+export function estimateTeamStats(wins: number, losses: number, teamId?: number): EstimatedTeamStats {
   const totalGames = wins + losses
   if (totalGames === 0) {
     // Default NBA averages
@@ -370,18 +370,22 @@ export function estimateTeamStats(wins: number, losses: number): EstimatedTeamSt
 
   const winPct = wins / totalGames
 
+  // Add team-specific variance to prevent identical stats for teams with same record
+  // Use teamId to create deterministic but unique variations
+  const teamVariance = teamId ? (teamId % 100) / 200 : 0 // -0.25 to +0.25 range
+
   // Better teams tend to score more, allow less, and have better percentages
   // These are rough estimates based on NBA correlations
-  const ppg = 108 + (winPct * 12) // Range: 108-120
-  const papg = 118 - (winPct * 12) // Range: 106-118 (inverse)
-  const fgPct = 44.5 + (winPct * 4) // Range: 44.5-48.5
-  const fg3Pct = 35.0 + (winPct * 3.5) // Range: 35.0-38.5
-  const ftPct = 76.0 + (winPct * 4) // Range: 76.0-80.0
-  const rpg = 42.0 + (winPct * 4) // Range: 42.0-46.0
-  const apg = 24.0 + (winPct * 4) // Range: 24.0-28.0
-  const spg = 7.0 + (winPct * 2) // Range: 7.0-9.0
-  const bpg = 4.5 + (winPct * 1.5) // Range: 4.5-6.0
-  const tpg = 15.0 - (winPct * 3) // Range: 12.0-15.0 (inverse)
+  const ppg = 108 + (winPct * 12) + (teamVariance * 8) // Range: ~104-124
+  const papg = 118 - (winPct * 12) + (teamVariance * 6) // Range: ~103-121 (inverse)
+  const fgPct = 44.5 + (winPct * 4) + (teamVariance * 2.5) // Range: ~42-49.5
+  const fg3Pct = 35.0 + (winPct * 3.5) + (teamVariance * 2) // Range: ~33-40
+  const ftPct = 76.0 + (winPct * 4) + (teamVariance * 3) // Range: ~73.5-81.5
+  const rpg = 42.0 + (winPct * 4) + (teamVariance * 3) // Range: ~39.5-47.5
+  const apg = 24.0 + (winPct * 4) + (teamVariance * 2.5) // Range: ~22-29
+  const spg = 7.0 + (winPct * 2) + (teamVariance * 1.5) // Range: ~6-10
+  const bpg = 4.5 + (winPct * 1.5) + (teamVariance * 1) // Range: ~4-7
+  const tpg = 15.0 - (winPct * 3) - (teamVariance * 2) // Range: ~11-17 (inverse)
 
   return {
     ppg: Math.round(ppg * 10) / 10,

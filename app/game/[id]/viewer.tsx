@@ -268,8 +268,8 @@ export default function Client({ id }: { id: string }) {
                 <h3 className="text-lg font-bold text-center mb-6 text-gray-900">Team Comparison</h3>
 
                 {(() => {
-                  const awayStats = estimateTeamStats(data.awayWins, data.awayLosses)
-                  const homeStats = estimateTeamStats(data.homeWins, data.homeLosses)
+                  const awayStats = estimateTeamStats(data.awayWins || 0, data.awayLosses || 0, data.awayTeamId)
+                  const homeStats = estimateTeamStats(data.homeWins || 0, data.homeLosses || 0, data.homeTeamId)
 
                   const StatRow = ({ label, awayStat, homeStat, unit = '', inverse = false }: {
                     label: string
@@ -290,11 +290,11 @@ export default function Client({ id }: { id: string }) {
                     return (
                       <div className="mb-4">
                         <div className="flex justify-between items-center mb-2">
-                          <span className={`text-sm font-bold ${awayBetter ? 'text-blue-600' : 'text-gray-500'}`}>
+                          <span className={`text-sm font-bold ${awayBetter ? 'text-blue-600' : 'text-red-600'}`}>
                             {awayStat.toFixed(1)}{unit}
                           </span>
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{label}</span>
-                          <span className={`text-sm font-bold ${homeBetter ? 'text-purple-600' : 'text-gray-500'}`}>
+                          <span className={`text-sm font-bold ${homeBetter ? 'text-blue-600' : 'text-red-600'}`}>
                             {homeStat.toFixed(1)}{unit}
                           </span>
                         </div>
@@ -303,12 +303,12 @@ export default function Client({ id }: { id: string }) {
                         <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                           {/* Away team fill (left side) */}
                           <div
-                            className={`absolute left-0 top-0 h-full ${awayBetter ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-gray-400 to-gray-500'}`}
+                            className={`absolute left-0 top-0 h-full ${awayBetter ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-red-500 to-red-600'}`}
                             style={{ width: `${awayPercentage}%` }}
                           />
                           {/* Home team fill (right side) */}
                           <div
-                            className={`absolute right-0 top-0 h-full ${homeBetter ? 'bg-gradient-to-l from-purple-500 to-purple-600' : 'bg-gradient-to-l from-gray-400 to-gray-500'}`}
+                            className={`absolute right-0 top-0 h-full ${homeBetter ? 'bg-gradient-to-l from-blue-500 to-blue-600' : 'bg-gradient-to-l from-red-500 to-red-600'}`}
                             style={{ width: `${homePercentage}%` }}
                           />
                           {/* White divider line at the split point */}
