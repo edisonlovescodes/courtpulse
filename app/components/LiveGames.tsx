@@ -12,11 +12,29 @@ type Game = {
   status: string
   period: number
   gameClock?: string
+  homeWins?: number
+  homeLosses?: number
+  awayWins?: number
+  awayLosses?: number
+  homeTeamId?: number
+  awayTeamId?: number
+  homeTricode?: string
+  awayTricode?: string
 }
 
 function isLive(status: string) {
   const s = status.toLowerCase()
   return s.includes('live') || s.includes('in progress')
+}
+
+function getTeamLogoUrl(teamId?: number): string {
+  if (!teamId) return ''
+  return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+}
+
+function formatRecord(wins?: number, losses?: number): string {
+  if (wins === undefined || losses === undefined) return ''
+  return `${wins}-${losses}`
 }
 
 export default function LiveGames() {
@@ -123,8 +141,23 @@ export default function LiveGames() {
                     )}
                   </div>
                   <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-6">
-                    <div className="text-right">
-                      <div className="text-lg font-bold mb-1">{g.awayTeam}</div>
+                    <div className="text-right flex flex-col items-end">
+                      <div className="flex items-center gap-3 mb-2">
+                        {g.awayTeamId && (
+                          <img
+                            src={getTeamLogoUrl(g.awayTeamId)}
+                            alt={g.awayTeam}
+                            className="w-12 h-12 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        )}
+                        <div>
+                          <div className="text-lg font-bold">{g.awayTeam}</div>
+                          {formatRecord(g.awayWins, g.awayLosses) && (
+                            <div className="text-sm text-gray-600">{formatRecord(g.awayWins, g.awayLosses)}</div>
+                          )}
+                        </div>
+                      </div>
                       {hasAccess ? (
                         <div className="text-4xl font-black text-brand-accent">{g.awayScore}</div>
                       ) : (
@@ -132,8 +165,23 @@ export default function LiveGames() {
                       )}
                     </div>
                     <div className="text-2xl opacity-20 font-bold">VS</div>
-                    <div className="text-left">
-                      <div className="text-lg font-bold mb-1">{g.homeTeam}</div>
+                    <div className="text-left flex flex-col items-start">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="text-right">
+                          <div className="text-lg font-bold">{g.homeTeam}</div>
+                          {formatRecord(g.homeWins, g.homeLosses) && (
+                            <div className="text-sm text-gray-600">{formatRecord(g.homeWins, g.homeLosses)}</div>
+                          )}
+                        </div>
+                        {g.homeTeamId && (
+                          <img
+                            src={getTeamLogoUrl(g.homeTeamId)}
+                            alt={g.homeTeam}
+                            className="w-12 h-12 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        )}
+                      </div>
                       {hasAccess ? (
                         <div className="text-4xl font-black text-brand-accent">{g.homeScore}</div>
                       ) : (
@@ -159,23 +207,56 @@ export default function LiveGames() {
               const isFinal = g.status.toLowerCase().includes('final')
               return (
                 <div key={g.id} className="group rounded-xl p-5 bg-white border border-black/10 hover:border-brand-accent/30 hover:shadow-lg transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="text-sm font-bold mb-1">{g.awayTeam}</div>
-                      <div className="text-sm font-bold text-brand-text/80">{g.homeTeam}</div>
-                    </div>
-                    <div className="text-right">
-                      {hasAccess ? (
-                        <>
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1">
+                        {g.awayTeamId && (
+                          <img
+                            src={getTeamLogoUrl(g.awayTeamId)}
+                            alt={g.awayTeam}
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="text-sm font-bold">{g.awayTeam}</div>
+                          {formatRecord(g.awayWins, g.awayLosses) && (
+                            <div className="text-xs text-gray-500">{formatRecord(g.awayWins, g.awayLosses)}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {hasAccess ? (
                           <div className="text-2xl font-bold">{g.awayScore}</div>
+                        ) : (
+                          <div className="text-2xl font-bold text-gray-300">--</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1">
+                        {g.homeTeamId && (
+                          <img
+                            src={getTeamLogoUrl(g.homeTeamId)}
+                            alt={g.homeTeam}
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="text-sm font-bold text-brand-text/80">{g.homeTeam}</div>
+                          {formatRecord(g.homeWins, g.homeLosses) && (
+                            <div className="text-xs text-gray-500">{formatRecord(g.homeWins, g.homeLosses)}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {hasAccess ? (
                           <div className="text-2xl font-bold text-brand-text/80">{g.homeScore}</div>
-                        </>
-                      ) : (
-                        <>
+                        ) : (
                           <div className="text-2xl font-bold text-gray-300">--</div>
-                          <div className="text-2xl font-bold text-gray-300">--</div>
-                        </>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-black/5">

@@ -148,6 +148,14 @@ export type TodayGame = {
   status: string
   period: number
   gameClock?: string
+  homeWins?: number
+  homeLosses?: number
+  awayWins?: number
+  awayLosses?: number
+  homeTeamId?: number
+  awayTeamId?: number
+  homeTricode?: string
+  awayTricode?: string
 }
 
 export function formatGameClock(clock?: string): string {
@@ -165,6 +173,16 @@ export function formatGameClock(clock?: string): string {
 
 function formatTeam(team: NBATeam): string {
   return `${team.teamCity} ${team.teamName}`
+}
+
+// Get team logo URL from NBA CDN
+export function getTeamLogoUrl(teamId: number): string {
+  return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+}
+
+// Alternative PNG logos if SVG doesn't work
+export function getTeamLogoPngUrl(teamTricode: string): string {
+  return `https://cdn.nba.com/logos/nba/${teamTricode}/logo.png`
 }
 
 export async function getTodayGames(): Promise<TodayGame[]> {
@@ -195,6 +213,14 @@ export async function getTodayGames(): Promise<TodayGame[]> {
       status: formatStatus(g.gameStatus, g.gameStatusText),
       period: g.period || 0,
       gameClock: formatGameClock(g.gameClock),
+      homeWins: g.homeTeam.wins || 0,
+      homeLosses: g.homeTeam.losses || 0,
+      awayWins: g.awayTeam.wins || 0,
+      awayLosses: g.awayTeam.losses || 0,
+      homeTeamId: g.homeTeam.teamId,
+      awayTeamId: g.awayTeam.teamId,
+      homeTricode: g.homeTeam.teamTricode,
+      awayTricode: g.awayTeam.teamTricode,
     }))
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
@@ -234,6 +260,14 @@ export async function getGamesByDate(date: string): Promise<TodayGame[]> {
       status: formatStatus(g.gameStatus, g.gameStatusText),
       period: g.period || 0,
       gameClock: formatGameClock((g as any).gameClock),
+      homeWins: g.homeTeam.wins || 0,
+      homeLosses: g.homeTeam.losses || 0,
+      awayWins: g.awayTeam.wins || 0,
+      awayLosses: g.awayTeam.losses || 0,
+      homeTeamId: g.homeTeam.teamId,
+      awayTeamId: g.awayTeam.teamId,
+      homeTricode: g.homeTeam.teamTricode,
+      awayTricode: g.awayTeam.teamTricode,
     }))
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
