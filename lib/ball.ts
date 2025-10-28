@@ -334,3 +334,65 @@ function formatStatus(gameStatus: number, statusText: string): string {
 export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
+
+// Estimate team stats for pre-game preview based on win-loss record
+// This provides rough estimates until we have historical data
+export type EstimatedTeamStats = {
+  ppg: number // points per game
+  papg: number // points allowed per game
+  fgPct: number // field goal percentage
+  fg3Pct: number // 3-point percentage
+  ftPct: number // free throw percentage
+  rpg: number // rebounds per game
+  apg: number // assists per game
+  spg: number // steals per game
+  bpg: number // blocks per game
+  tpg: number // turnovers per game
+}
+
+export function estimateTeamStats(wins: number, losses: number): EstimatedTeamStats {
+  const totalGames = wins + losses
+  if (totalGames === 0) {
+    // Default NBA averages
+    return {
+      ppg: 112.0,
+      papg: 112.0,
+      fgPct: 46.5,
+      fg3Pct: 36.5,
+      ftPct: 77.5,
+      rpg: 43.5,
+      apg: 25.0,
+      spg: 7.5,
+      bpg: 5.0,
+      tpg: 13.5,
+    }
+  }
+
+  const winPct = wins / totalGames
+
+  // Better teams tend to score more, allow less, and have better percentages
+  // These are rough estimates based on NBA correlations
+  const ppg = 108 + (winPct * 12) // Range: 108-120
+  const papg = 118 - (winPct * 12) // Range: 106-118 (inverse)
+  const fgPct = 44.5 + (winPct * 4) // Range: 44.5-48.5
+  const fg3Pct = 35.0 + (winPct * 3.5) // Range: 35.0-38.5
+  const ftPct = 76.0 + (winPct * 4) // Range: 76.0-80.0
+  const rpg = 42.0 + (winPct * 4) // Range: 42.0-46.0
+  const apg = 24.0 + (winPct * 4) // Range: 24.0-28.0
+  const spg = 7.0 + (winPct * 2) // Range: 7.0-9.0
+  const bpg = 4.5 + (winPct * 1.5) // Range: 4.5-6.0
+  const tpg = 15.0 - (winPct * 3) // Range: 12.0-15.0 (inverse)
+
+  return {
+    ppg: Math.round(ppg * 10) / 10,
+    papg: Math.round(papg * 10) / 10,
+    fgPct: Math.round(fgPct * 10) / 10,
+    fg3Pct: Math.round(fg3Pct * 10) / 10,
+    ftPct: Math.round(ftPct * 10) / 10,
+    rpg: Math.round(rpg * 10) / 10,
+    apg: Math.round(apg * 10) / 10,
+    spg: Math.round(spg * 10) / 10,
+    bpg: Math.round(bpg * 10) / 10,
+    tpg: Math.round(tpg * 10) / 10,
+  }
+}

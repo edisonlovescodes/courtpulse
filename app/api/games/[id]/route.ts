@@ -99,9 +99,42 @@ export async function GET(req: Request, { params }: any) {
     })
   } catch (e: any) {
     console.error('Error fetching game:', gameId, e)
-    // Better error message for scheduled games
+
+    // For scheduled games that haven't started, try to get basic info from today's games
+    try {
+      const { getTodayGames } = await import('@/lib/ball')
+      const todayGames = await getTodayGames()
+      const scheduledGame = todayGames.find(g => g.id === gameId)
+
+      if (scheduledGame) {
+        // Return pre-game data
+        return NextResponse.json({
+          id: scheduledGame.id,
+          homeTeam: scheduledGame.homeTeam,
+          awayTeam: scheduledGame.awayTeam,
+          homeScore: 0,
+          awayScore: 0,
+          status: scheduledGame.status,
+          period: 0,
+          allowed: true,
+          isPreGame: true,
+          homeWins: scheduledGame.homeWins,
+          homeLosses: scheduledGame.homeLosses,
+          awayWins: scheduledGame.awayWins,
+          awayLosses: scheduledGame.awayLosses,
+          homeTeamId: scheduledGame.homeTeamId,
+          awayTeamId: scheduledGame.awayTeamId,
+          homeTricode: scheduledGame.homeTricode,
+          awayTricode: scheduledGame.awayTricode,
+        })
+      }
+    } catch (preGameError) {
+      console.error('Error fetching pre-game data:', preGameError)
+    }
+
+    // If we can't get pre-game data, return error
     return NextResponse.json({
-      error: 'This game has not started yet. Detailed stats will be available once the game begins.',
+      error: 'Game data not available.',
       gameId,
     }, { status: 404 })
   }

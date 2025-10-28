@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import BusinessCard from '../../components/BusinessCard'
+import { estimateTeamStats, type EstimatedTeamStats } from '@/lib/ball'
 
 type PlayerStats = {
   personId: number
@@ -81,6 +82,15 @@ type Detail = {
   reason?: string
   homeTeamDetails?: TeamDetails
   awayTeamDetails?: TeamDetails
+  isPreGame?: boolean
+  homeWins?: number
+  homeLosses?: number
+  awayWins?: number
+  awayLosses?: number
+  homeTeamId?: number
+  awayTeamId?: number
+  homeTricode?: string
+  awayTricode?: string
 }
 
 function formatGameClock(clock?: string): string {
@@ -111,6 +121,16 @@ function formatMinutes(minutes: string): string {
     return Math.ceil(mins + (secs > 0 ? 1 : 0)).toString()
   }
   return minutes
+}
+
+function getTeamLogoUrl(teamId?: number): string {
+  if (!teamId) return ''
+  return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+}
+
+function formatRecord(wins?: number, losses?: number): string {
+  if (wins === undefined || losses === undefined) return ''
+  return `${wins}-${losses}`
 }
 
 export default function Client({ id }: { id: string }) {
@@ -166,6 +186,167 @@ export default function Client({ id }: { id: string }) {
           <div className="h-24 bg-gray-200 rounded mb-4"></div>
           <div className="h-12 bg-gray-200 rounded w-2/3"></div>
         </div>
+      </main>
+    )
+  }
+
+  // Pre-game view for scheduled games
+  if (data.isPreGame) {
+    return (
+      <main className="space-y-6">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium hover:text-brand-accent transition group">
+          <svg className="w-5 h-5 group-hover:-translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to All Games
+        </Link>
+
+        {/* Pre-Game Matchup Card */}
+        <div className="rounded-3xl p-8 md:p-12 bg-gradient-to-br from-blue-50 via-white to-purple-50 border-2 border-blue-200 shadow-xl">
+          <div className="space-y-8">
+            {/* Game Time */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-bold mb-4">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {data.status}
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Game Preview</h2>
+            </div>
+
+            {/* Team Matchup */}
+            <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-8">
+              {/* Away Team */}
+              <div className="text-center">
+                {data.awayTeamId && (
+                  <img
+                    src={getTeamLogoUrl(data.awayTeamId)}
+                    alt={data.awayTeam}
+                    className="w-32 h-32 object-contain mx-auto mb-4"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+                <h3 className="text-2xl font-bold mb-2">{data.awayTeam}</h3>
+                {formatRecord(data.awayWins, data.awayLosses) && (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+                    <span className="text-sm font-semibold text-gray-600">RECORD</span>
+                    <span className="text-lg font-bold">{formatRecord(data.awayWins, data.awayLosses)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* VS Divider */}
+              <div className="flex flex-col items-center">
+                <div className="text-4xl font-black text-gray-300">@</div>
+              </div>
+
+              {/* Home Team */}
+              <div className="text-center">
+                {data.homeTeamId && (
+                  <img
+                    src={getTeamLogoUrl(data.homeTeamId)}
+                    alt={data.homeTeam}
+                    className="w-32 h-32 object-contain mx-auto mb-4"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+                <h3 className="text-2xl font-bold mb-2">{data.homeTeam}</h3>
+                {formatRecord(data.homeWins, data.homeLosses) && (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+                    <span className="text-sm font-semibold text-gray-600">RECORD</span>
+                    <span className="text-lg font-bold">{formatRecord(data.homeWins, data.homeLosses)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Team Comparison Stats */}
+            {data.awayWins !== undefined && data.awayLosses !== undefined &&
+             data.homeWins !== undefined && data.homeLosses !== undefined && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200">
+                <h3 className="text-lg font-bold text-center mb-6 text-gray-900">Team Comparison</h3>
+
+                {(() => {
+                  const awayStats = estimateTeamStats(data.awayWins, data.awayLosses)
+                  const homeStats = estimateTeamStats(data.homeWins, data.homeLosses)
+
+                  const StatRow = ({ label, awayStat, homeStat, unit = '', inverse = false }: {
+                    label: string
+                    awayStat: number
+                    homeStat: number
+                    unit?: string
+                    inverse?: boolean
+                  }) => {
+                    const maxValue = Math.max(awayStat, homeStat)
+                    const awayPct = (awayStat / maxValue) * 100
+                    const homePct = (homeStat / maxValue) * 100
+                    const awayBetter = inverse ? awayStat < homeStat : awayStat > homeStat
+                    const homeBetter = inverse ? homeStat < awayStat : homeStat > awayStat
+
+                    return (
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className={`text-sm font-bold ${awayBetter ? 'text-blue-600' : 'text-gray-500'}`}>
+                            {awayStat.toFixed(1)}{unit}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{label}</span>
+                          <span className={`text-sm font-bold ${homeBetter ? 'text-blue-600' : 'text-gray-500'}`}>
+                            {homeStat.toFixed(1)}{unit}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full ${awayBetter ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'}`}
+                              style={{ width: `${awayPct}%` }}
+                            />
+                          </div>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full ${homeBetter ? 'bg-gradient-to-r from-blue-600 to-blue-500' : 'bg-gray-300'}`}
+                              style={{ width: `${homePct}%`, marginLeft: 'auto' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      <StatRow label="Points Per Game" awayStat={awayStats.ppg} homeStat={homeStats.ppg} />
+                      <StatRow label="Points Allowed" awayStat={awayStats.papg} homeStat={homeStats.papg} inverse />
+                      <StatRow label="Field Goal %" awayStat={awayStats.fgPct} homeStat={homeStats.fgPct} unit="%" />
+                      <StatRow label="3-Point %" awayStat={awayStats.fg3Pct} homeStat={homeStats.fg3Pct} unit="%" />
+                      <StatRow label="Free Throw %" awayStat={awayStats.ftPct} homeStat={homeStats.ftPct} unit="%" />
+                      <StatRow label="Rebounds Per Game" awayStat={awayStats.rpg} homeStat={homeStats.rpg} />
+                      <StatRow label="Assists Per Game" awayStat={awayStats.apg} homeStat={homeStats.apg} />
+                      <StatRow label="Steals Per Game" awayStat={awayStats.spg} homeStat={homeStats.spg} />
+                      <StatRow label="Blocks Per Game" awayStat={awayStats.bpg} homeStat={homeStats.bpg} />
+                      <StatRow label="Turnovers Per Game" awayStat={awayStats.tpg} homeStat={homeStats.tpg} inverse />
+                    </div>
+                  )
+                })()}
+
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 text-center italic">
+                    * Stats are estimated based on team records. Live stats will be available when the game starts.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Info Message */}
+            <div className="text-center p-6 bg-white/60 rounded-2xl border border-blue-100">
+              <p className="text-gray-600">
+                Detailed stats and live scoring will be available when the game starts.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <BusinessCard />
       </main>
     )
   }
