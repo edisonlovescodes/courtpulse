@@ -137,6 +137,8 @@ export default function Client({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('boxscore')
+  const [awayStats, setAwayStats] = useState<any>(null)
+  const [homeStats, setHomeStats] = useState<any>(null)
 
   const load = useCallback(async () => {
     try {
@@ -160,6 +162,34 @@ export default function Client({ id }: { id: string }) {
       setError(e.message)
     }
   }, [id])
+
+  // Load team stats for pre-game preview
+  useEffect(() => {
+    async function loadTeamStats() {
+      if (!data?.isPreGame || !data.awayTeamId || !data.homeTeamId) return
+
+      try {
+        const [awayRes, homeRes] = await Promise.all([
+          fetch(`/api/team-stats/${data.awayTeamId}`),
+          fetch(`/api/team-stats/${data.homeTeamId}`)
+        ])
+
+        if (awayRes.ok) {
+          const awayData = await awayRes.json()
+          if (awayData.stats) setAwayStats(awayData.stats)
+        }
+
+        if (homeRes.ok) {
+          const homeData = await homeRes.json()
+          if (homeData.stats) setHomeStats(homeData.stats)
+        }
+      } catch (e) {
+        console.error('Failed to load team stats:', e)
+      }
+    }
+
+    loadTeamStats()
+  }, [data?.isPreGame, data?.awayTeamId, data?.homeTeamId])
 
   useEffect(() => {
     load()
@@ -268,8 +298,9 @@ export default function Client({ id }: { id: string }) {
                 <h3 className="text-lg font-bold text-center mb-6 text-gray-900">Team Comparison</h3>
 
                 {(() => {
-                  const awayStats = estimateTeamStats(data.awayWins || 0, data.awayLosses || 0, data.awayTeamId)
-                  const homeStats = estimateTeamStats(data.homeWins || 0, data.homeLosses || 0, data.homeTeamId)
+                  // Use real stats if available, otherwise fall back to estimates
+                  const awayTeamStats = awayStats || estimateTeamStats(data.awayWins || 0, data.awayLosses || 0, data.awayTeamId)
+                  const homeTeamStats = homeStats || estimateTeamStats(data.homeWins || 0, data.homeLosses || 0, data.homeTeamId)
 
                   const StatRow = ({ label, awayStat, homeStat, unit = '', inverse = false }: {
                     label: string
@@ -323,23 +354,25 @@ export default function Client({ id }: { id: string }) {
 
                   return (
                     <div className="space-y-2">
-                      <StatRow label="Points Per Game" awayStat={awayStats.ppg} homeStat={homeStats.ppg} />
-                      <StatRow label="Points Allowed" awayStat={awayStats.papg} homeStat={homeStats.papg} inverse />
-                      <StatRow label="Field Goal %" awayStat={awayStats.fgPct} homeStat={homeStats.fgPct} unit="%" />
-                      <StatRow label="3-Point %" awayStat={awayStats.fg3Pct} homeStat={homeStats.fg3Pct} unit="%" />
-                      <StatRow label="Free Throw %" awayStat={awayStats.ftPct} homeStat={homeStats.ftPct} unit="%" />
-                      <StatRow label="Rebounds Per Game" awayStat={awayStats.rpg} homeStat={homeStats.rpg} />
-                      <StatRow label="Assists Per Game" awayStat={awayStats.apg} homeStat={homeStats.apg} />
-                      <StatRow label="Steals Per Game" awayStat={awayStats.spg} homeStat={homeStats.spg} />
-                      <StatRow label="Blocks Per Game" awayStat={awayStats.bpg} homeStat={homeStats.bpg} />
-                      <StatRow label="Turnovers Per Game" awayStat={awayStats.tpg} homeStat={homeStats.tpg} inverse />
+                      <StatRow label="Points Per Game" awayStat={awayTeamStats.ppg} homeStat={homeTeamStats.ppg} />
+                      <StatRow label="Points Allowed" awayStat={awayTeamStats.papg} homeStat={homeTeamStats.papg} inverse />
+                      <StatRow label="Field Goal %" awayStat={awayTeamStats.fgPct} homeStat={homeTeamStats.fgPct} unit="%" />
+                      <StatRow label="3-Point %" awayStat={awayTeamStats.fg3Pct} homeStat={homeTeamStats.fg3Pct} unit="%" />
+                      <StatRow label="Free Throw %" awayStat={awayTeamStats.ftPct} homeStat={homeTeamStats.ftPct} unit="%" />
+                      <StatRow label="Rebounds Per Game" awayStat={awayTeamStats.rpg} homeStat={homeTeamStats.rpg} />
+                      <StatRow label="Assists Per Game" awayStat={awayTeamStats.apg} homeStat={homeTeamStats.apg} />
+                      <StatRow label="Steals Per Game" awayStat={awayTeamStats.spg} homeStat={homeTeamStats.spg} />
+                      <StatRow label="Blocks Per Game" awayStat={awayTeamStats.bpg} homeStat={homeTeamStats.bpg} />
+                      <StatRow label="Turnovers Per Game" awayStat={awayTeamStats.tpg} homeStat={homeTeamStats.tpg} inverse />
                     </div>
                   )
                 })()}
 
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-500 text-center italic">
-                    * Stats are estimated based on team records. Live stats will be available when the game starts.
+                    {awayStats && homeStats
+                      ? '* Stats calculated from recent games. Live stats will be available when the game starts.'
+                      : '* Stats are estimated based on team records. Live stats will be available when the game starts.'}
                   </p>
                 </div>
               </div>

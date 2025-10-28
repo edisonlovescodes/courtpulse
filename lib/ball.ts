@@ -335,6 +335,89 @@ export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
 
+// Calculate season averages from recent completed games
+export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
+  try {
+    // Fetch games from last 30 days to calculate averages
+    const games: NBAGame[] = []
+    const today = new Date()
+
+    // Check last 30 days for completed games with this team
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
+
+      try {
+        const url = `${NBA_API_BASE}/scoreboard/${dateStr}/scoreboard.json`
+        const res = await fetch(url, { cache: 'no-store', next: { revalidate: 3600 } })
+        if (!res.ok) continue
+
+        const json = await res.json()
+        const dayGames: NBAGame[] = json.scoreboard?.games || []
+
+        // Filter for completed games with this team
+        const teamGames = dayGames.filter(g =>
+          g.gameStatus === 3 && // Final
+          (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId) &&
+          g.homeTeam.statistics && g.awayTeam.statistics
+        )
+        games.push(...teamGames)
+
+        if (games.length >= 5) break // Stop after finding 5 games
+      } catch {
+        continue
+      }
+    }
+
+    if (games.length === 0) return null
+
+    // Calculate averages
+    let totalPPG = 0, totalPAPG = 0, totalFG = 0, totalFGA = 0
+    let total3P = 0, total3PA = 0, totalFT = 0, totalFTA = 0
+    let totalREB = 0, totalAST = 0, totalSTL = 0, totalBLK = 0, totalTOV = 0
+
+    games.forEach(g => {
+      const isHome = g.homeTeam.teamId === teamId
+      const team = isHome ? g.homeTeam : g.awayTeam
+      const opponent = isHome ? g.awayTeam : g.homeTeam
+      const stats = team.statistics!
+
+      totalPPG += team.score
+      totalPAPG += opponent.score
+      totalFG += stats.fieldGoalsMade
+      totalFGA += stats.fieldGoalsAttempted
+      total3P += stats.threePointersMade
+      total3PA += stats.threePointersAttempted
+      totalFT += stats.freeThrowsMade
+      totalFTA += stats.freeThrowsAttempted
+      totalREB += stats.reboundsTotal
+      totalAST += stats.assists
+      totalSTL += stats.steals
+      totalBLK += stats.blocks
+      totalTOV += stats.turnovers
+    })
+
+    const gameCount = games.length
+
+    return {
+      ppg: Math.round((totalPPG / gameCount) * 10) / 10,
+      papg: Math.round((totalPAPG / gameCount) * 10) / 10,
+      fgPct: Math.round((totalFG / totalFGA * 100) * 10) / 10,
+      fg3Pct: Math.round((total3P / total3PA * 100) * 10) / 10,
+      ftPct: Math.round((totalFT / totalFTA * 100) * 10) / 10,
+      rpg: Math.round((totalREB / gameCount) * 10) / 10,
+      apg: Math.round((totalAST / gameCount) * 10) / 10,
+      spg: Math.round((totalSTL / gameCount) * 10) / 10,
+      bpg: Math.round((totalBLK / gameCount) * 10) / 10,
+      tpg: Math.round((totalTOV / gameCount) * 10) / 10,
+    }
+  } catch (e) {
+    console.error('Error calculating team season stats:', e)
+    return null
+  }
+}
+
 // Estimate team stats for pre-game preview based on win-loss record
 // This provides rough estimates until we have historical data
 export type EstimatedTeamStats = {
