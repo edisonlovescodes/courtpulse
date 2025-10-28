@@ -123,8 +123,38 @@ async function processGameNotification(
     }
   }
 
-  // Send notification if needed
+  const baseWhere = {
+    companyId_gameId: {
+      companyId: settings.companyId,
+      gameId,
+    },
+  } as const
+
   if (shouldNotify) {
+    const claimedAt = new Date()
+    const claim = await prisma.gameNotificationState.updateMany({
+      where: {
+        companyId: settings.companyId,
+        gameId,
+        lastHomeScore: state.lastHomeScore,
+        lastAwayScore: state.lastAwayScore,
+        lastPeriod: state.lastPeriod,
+        lastStatus: state.lastStatus,
+      },
+      data: {
+        lastHomeScore: homeScore,
+        lastAwayScore: awayScore,
+        lastPeriod: period,
+        lastStatus: status,
+        lastNotifiedAt: claimedAt,
+      },
+    })
+
+    if (claim.count === 0) {
+      // Another worker already handled this update
+      return
+    }
+
     const message = formatGameUpdateMessage({
       homeTeam: `${game.homeTeam.teamCity} ${game.homeTeam.teamName}`,
       awayTeam: `${game.awayTeam.teamCity} ${game.awayTeam.teamName}`,
@@ -136,22 +166,40 @@ async function processGameNotification(
       eventType,
     })
 
-    await createMessage(settings.channelId, message)
-
-    // Update state
-    await prisma.gameNotificationState.update({
-      where: {
-        companyId_gameId: {
-          companyId: settings.companyId,
-          gameId,
+    try {
+      await createMessage(settings.channelId, message)
+    } catch (err) {
+      // Roll back state so a future run can retry
+      await prisma.gameNotificationState.update({
+        where: baseWhere,
+        data: {
+          lastHomeScore: state.lastHomeScore,
+          lastAwayScore: state.lastAwayScore,
+          lastPeriod: state.lastPeriod,
+          lastStatus: state.lastStatus,
+          lastNotifiedAt: state.lastNotifiedAt,
         },
-      },
+      }).catch(() => {})
+      throw err
+    }
+
+    return
+  }
+
+  // No notification sent but state may have changed; keep it in sync
+  if (
+    state.lastHomeScore !== homeScore ||
+    state.lastAwayScore !== awayScore ||
+    state.lastPeriod !== period ||
+    state.lastStatus !== status
+  ) {
+    await prisma.gameNotificationState.update({
+      where: baseWhere,
       data: {
         lastHomeScore: homeScore,
         lastAwayScore: awayScore,
         lastPeriod: period,
         lastStatus: status,
-        lastNotifiedAt: new Date(),
       },
     })
   }
