@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type Game = {
   id: string
@@ -102,16 +103,16 @@ const normaliseSettings = (raw: any): NotificationSettings => {
 }
 
 export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
+  const router = useRouter()
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
-  const [notifFetched, setNotifFetched] = useState(false)
-  const [notifSaving, setNotifSaving] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
+  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(isAdmin && companyId))
 
   const loadGames = useCallback(async () => {
     try {
@@ -141,7 +142,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
-    if (!isAdmin || !companyId) return
+    if (!companyId) return
     setNotifLoading(true)
     setNotifError(null)
     try {
@@ -152,62 +153,38 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
           'Pragma': 'no-cache',
         },
       })
-      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      if (!res.ok) {
+        if (res.status === 403) {
+          setHasAdminAccess(false)
+          setNotifSettings(null)
+          return
+        }
+        throw new Error(`Failed (${res.status})`)
+      }
       const data = await res.json()
       setNotifSettings(normaliseSettings(data.settings))
+      setHasAdminAccess(true)
     } catch (e: any) {
       setNotifError(e.message || 'Failed to load notifications')
       setNotifSettings(null)
+      if (!hasAdminAccess) {
+        setHasAdminAccess(Boolean(isAdmin))
+      }
     } finally {
       setNotifLoading(false)
-      setNotifFetched(true)
     }
-  }, [companyId, isAdmin])
+  }, [companyId, hasAdminAccess, isAdmin])
 
   useEffect(() => {
-    if (!isAdmin || !companyId) {
+    if (!companyId) {
       setNotifSettings(null)
-      setNotifFetched(false)
       setNotifError(null)
+      setHasAdminAccess(Boolean(isAdmin && companyId))
       return
     }
     loadNotifications()
   }, [companyId, isAdmin, loadNotifications])
 
-  const toggleNotifications = useCallback(async () => {
-    if (!companyId || !notifSettings) return
-    if (!notifSettings.channelIds.length) {
-      setNotifError('Select at least one chat channel in settings before enabling notifications.')
-      return
-    }
-    setNotifSaving(true)
-    setNotifError(null)
-    try {
-      const res = await fetch('/api/admin/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          enabled: !notifSettings.enabled,
-          channelIds: notifSettings.channelIds,
-          channelId: notifSettings.channelIds[0] ?? null,
-          channelName: notifSettings.channelName,
-          updateFrequency: notifSettings.updateFrequency,
-          notifyGameStart: notifSettings.notifyGameStart,
-          notifyGameEnd: notifSettings.notifyGameEnd,
-          notifyQuarterEnd: notifSettings.notifyQuarterEnd,
-          trackedGames: notifSettings.trackedGames,
-        }),
-      })
-      if (!res.ok) throw new Error('Failed to update notifications')
-      const updated = await res.json()
-      setNotifSettings(normaliseSettings(updated.settings))
-    } catch (e: any) {
-      setNotifError(e.message || 'Failed to update notifications')
-    } finally {
-      setNotifSaving(false)
-    }
-  }, [companyId, notifSettings])
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
     if (!companyId || !notifSettings) return
@@ -261,40 +238,61 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   const otherGames = useMemo(() => games.filter((g) => !isLive(g.status)), [games])
 
   const hasAccess = true
-  const showAdminControls = Boolean(isAdmin && companyId)
-  const toggleDisabled =
-    !notifSettings ||
-    !notifSettings.channelIds.length ||
-    notifSaving ||
-    (notifLoading && !notifFetched)
-  const toggleLabel = notifSaving
-    ? 'Updating...'
-    : notifSettings?.enabled
-      ? 'Turn Off'
-      : 'Turn On'
+  const followConfigMissing = Boolean(hasAdminAccess && notifSettings && !notifSettings.channelIds.length)
 
-  const notifStatus = (() => {
-    if (!showAdminControls) return ''
-    if (notifLoading && !notifFetched) return 'Checking notification status...'
-    if (notifError && !notifSettings) return 'Unable to load notification settings'
-    if (!notifSettings) return 'Notifications unavailable'
-    if (!notifSettings.channelIds.length) return 'Assign chat channels in settings to enable notifications'
-    if (notifSettings.enabled) {
-      if (notifSettings.channelName) {
-        const extra = notifSettings.channelIds.length > 1 ? ` +${notifSettings.channelIds.length - 1} more` : ''
-        return `On for ${notifSettings.channelName}${extra}`
-      }
-      return `On for ${notifSettings.channelIds.length} channel${notifSettings.channelIds.length > 1 ? 's' : ''}`
-    }
-    return 'Currently off'
-  })()
+  const renderFollowControls = (gameId: string) => {
+    if (!hasAdminAccess) return null
+    const isTracked = Boolean(notifSettings?.trackedGames.includes(gameId))
+    const followDisabled =
+      !notifSettings ||
+      !notifSettings.channelIds.length ||
+      Boolean(trackingBusy[gameId]) ||
+      notifLoading
+
+    return (
+      <div className="flex items-center gap-2">
+        <label
+          className={`inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm ${followDisabled ? 'opacity-60' : ''}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
+            checked={isTracked}
+            disabled={followDisabled}
+            onChange={(e) => toggleTrackedGame(gameId, e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          Follow
+        </label>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push('/dashboard')
+          }}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white/90 text-gray-600 shadow-sm transition hover:text-brand-accent"
+        >
+          <span className="sr-only">Open settings</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-4 w-4"
+          >
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
       <div className="space-y-6">
-        {showAdminControls && (
-          <div className="h-24 rounded-2xl border border-black/10 bg-white/70 animate-pulse" />
-        )}
         <div className="h-32 rounded-2xl border border-black/10 bg-white/70 animate-pulse" />
         <div className="grid gap-4 md:grid-cols-2">
           <div className="h-28 rounded-xl border border-black/10 bg-white/70 animate-pulse" />
@@ -305,42 +303,17 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   }
 
   return (
-    <div className="space-y-8">
-      {showAdminControls && (
-        <section className="rounded-2xl border border-black/10 bg-white/80 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Notifications</p>
-              <p className="text-xs text-gray-600">{notifStatus}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleNotifications}
-                disabled={toggleDisabled}
-                className="inline-flex items-center justify-center rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:bg-black/[0.03] disabled:opacity-50"
-              >
-                {toggleLabel}
-              </button>
-              <Link
-                href="/dashboard"
-                className="text-xs font-semibold text-brand-accent hover:underline"
-              >
-                Settings
-              </Link>
-            </div>
-          </div>
-          {notifError && (
-            <p className="mt-3 text-xs text-red-600">{notifError}</p>
-          )}
-          {!notifError && notifSettings && !notifSettings.channelIds.length && (
-            <p className="mt-3 text-xs text-amber-600">
-              Select at least one chat channel in settings before enabling notifications.
-            </p>
-          )}
-        </section>
+    <div className="space-y-6">
+      {hasAdminAccess && notifError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {notifError}
+        </div>
       )}
-
+      {followConfigMissing && !notifError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Select at least one chat channel in settings before following games.
+        </div>
+      )}
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -349,75 +322,54 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
 
       {liveGames.length > 0 && (
         <section className="space-y-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                  Live
-                </span>
-                <h3 className="text-lg font-bold text-gray-900">Live Now</h3>
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Auto-updating
-              </span>
-            </div>
-            {showAdminControls && notifSettings?.enabled && (
-              <div className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                Notifications On
-              </div>
-            )}
+                Live
+              </span>
+              <h3 className="text-lg font-bold text-gray-900">Live Now</h3>
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Auto-updating
+            </span>
           </div>
 
           <div className="grid gap-4">
-            {liveGames.map((g) => (
-              <Link
-                key={g.id}
-                href={`/game/${g.id}`}
-                className="group relative block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
-              >
-                {showAdminControls && notifSettings && (
-                  <label
-                    className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
-                      checked={notifSettings.trackedGames.includes(g.id)}
-                      disabled={Boolean(trackingBusy[g.id])}
-                      onChange={(e) => toggleTrackedGame(g.id, e.target.checked)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    Follow
-                  </label>
-                )}
-
-                <div className="absolute right-3 top-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
-
-                {g.period > 0 && (
-                  <div className="text-sm font-medium text-gray-500">
-                    Q{g.period}
-                    {g.gameClock && (
-                      <span className="ml-2 font-mono text-gray-700">
-                        {formatGameClock(g.gameClock)}
+            {liveGames.map((g) => {
+              const followControls = renderFollowControls(g.id)
+              return (
+                <Link
+                  key={g.id}
+                  href={`/game/${g.id}`}
+                  className="group block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                        Live
                       </span>
-                    )}
+                      {g.period > 0 && (
+                        <span className="text-xs font-semibold text-gray-600">
+                          Q{g.period}
+                          {g.gameClock && (
+                            <span className="ml-1 font-mono text-gray-500">
+                              {formatGameClock(g.gameClock)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {followControls}
                   </div>
-                )}
 
-                <div className="mt-4 grid grid-cols-[1fr,auto,1fr] items-center gap-6">
-                  <div className="flex flex-col items-end gap-3 text-right">
-                    <div className="flex items-center gap-3">
-                      {g.awayTeamId && (
-                        <img
-                          src={getTeamLogoUrl(g.awayTeamId)}
+                  <div className="mt-4 grid grid-cols-[1fr,auto,1fr] items-center gap-6">
+                    <div className="flex flex-col items-end gap-3 text-right">
+                      <div className="flex items-center gap-3">
+                        {g.awayTeamId && (
+                          <img
+                            src={getTeamLogoUrl(g.awayTeamId)}
                           alt={g.awayTeam}
                           className="h-12 w-12 object-contain"
                           onError={(e) => {
@@ -465,14 +417,15 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
                     <div className="text-4xl font-black text-brand-accent">
                       {hasAccess ? g.homeScore : '--'}
                     </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-6 flex items-center justify-end text-xs font-semibold text-brand-accent opacity-0 transition group-hover:opacity-100">
-                  View details →
-                </div>
-              </Link>
-            ))}
+                  <div className="mt-6 flex items-center justify-end text-xs font-semibold text-brand-accent opacity-0 transition group-hover:opacity-100">
+                    View details →
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </section>
       )}
@@ -488,27 +441,15 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
           <div className="grid gap-4 md:grid-cols-2">
             {otherGames.map((g) => {
               const isFinal = g.status.toLowerCase().includes('final')
+              const followControls = renderFollowControls(g.id)
               return (
                 <Link
                   key={g.id}
                   href={`/game/${g.id}`}
-                  className="group relative block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
+                  className="group block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
                 >
-                  {showAdminControls && notifSettings && (
-                    <label
-                      className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
-                        checked={notifSettings.trackedGames.includes(g.id)}
-                        disabled={Boolean(trackingBusy[g.id])}
-                        onChange={(e) => toggleTrackedGame(g.id, e.target.checked)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      Follow
-                    </label>
+                  {followControls && (
+                    <div className="mb-3 flex justify-end">{followControls}</div>
                   )}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
