@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import BusinessCard from '../../components/BusinessCard'
 import { estimateTeamStats, type EstimatedTeamStats } from '@/lib/ball'
 
 type PlayerStats = {
@@ -387,7 +386,6 @@ export default function Client({ id }: { id: string }) {
           </div>
         </div>
 
-        <BusinessCard />
       </main>
     )
   }
@@ -777,11 +775,6 @@ export default function Client({ id }: { id: string }) {
         </div>
       )}
 
-      {/* Business Card */}
-      <div className="mt-8">
-        <BusinessCard />
-      </div>
     </main>
   )
 }
-

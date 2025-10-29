@@ -109,23 +109,31 @@ export function formatGameUpdateMessage(data: {
 }): string {
   const { homeTeam, awayTeam, homeScore, awayScore, period, gameClock, status, eventType } = data
 
-  let message = `**${awayTeam} @ ${homeTeam}**\n`
-  message += `**Score:** ${awayTeam} ${awayScore} - ${homeScore} ${homeTeam}\n`
+  const readableClock = (() => {
+    if (!gameClock) return ''
+    const match = gameClock.match(/PT(\d+)M([\d.]+)S/i)
+    if (!match) return gameClock
+    const mins = match[1]
+    const secs = Math.floor(parseFloat(match[2]))
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  })()
+
+  const lines: string[] = [
+    `${awayTeam} @ ${homeTeam}`,
+    `Score: (${awayTeam}) ${awayScore} - ${homeScore} (${homeTeam})`,
+  ]
 
   if (eventType === 'game_start') {
-    message += `🏀 **Game Starting!**`
+    lines.push('🏀 Game Starting!')
   } else if (eventType === 'game_end') {
-    message += `🏁 **FINAL**`
+    lines.push('🏁 Final')
   } else if (eventType === 'quarter_end') {
-    message += `⏰ **End of Q${period}**`
+    lines.push(`⏰ End of Q${period}`)
   } else if (period > 0) {
-    message += `📊 Q${period}`
-    if (gameClock) {
-      message += ` - ${gameClock}`
-    }
+    lines.push(`📊 Q${period}${readableClock ? ` • ${readableClock}` : ''}`)
   } else {
-    message += `📅 ${status}`
+    lines.push(`📅 ${status}`)
   }
 
-  return message
+  return lines.join('\n')
 }

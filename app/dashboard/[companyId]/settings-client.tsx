@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { TodayGame } from '@/lib/ball'
 
@@ -41,17 +41,7 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
   const [notifyQuarterEnd, setNotifyQuarterEnd] = useState(true)
   const [trackedGames, setTrackedGames] = useState<string[]>([])
 
-  // Auto-load settings on mount
-  useEffect(() => {
-    // Load today's games via our API to avoid CORS issues
-    fetch('/api/games/today', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`)))
-      .then((data: { games: TodayGame[] }) => setGames(data.games || []))
-      .catch(() => setGames([]))
-    loadSettings()
-  }, [companyId])
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     setLoading(true)
     setMessage('')
 
@@ -81,13 +71,23 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
       setNotifyQuarterEnd(s.notifyQuarterEnd)
       setTrackedGames(s.trackedGames || [])
 
-      setMessage('Settings loaded')
+      setMessage('')
     } catch (e: any) {
       setMessage(`Error: ${e.message}`)
     } finally {
       setLoading(false)
     }
-  }
+  }, [adminToken, authHeaders, companyId])
+
+  // Auto-load settings on mount
+  useEffect(() => {
+    // Load today's games via our API to avoid CORS issues
+    fetch('/api/games/today', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
+      .then((data: { games: TodayGame[] }) => setGames(data.games || []))
+      .catch(() => setGames([]))
+    loadSettings()
+  }, [loadSettings])
 
   const saveSettings = async () => {
     setSaving(true)

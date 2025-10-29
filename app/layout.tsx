@@ -18,40 +18,29 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <header className="mb-8">
-            <nav className="flex items-center justify-between pb-4">
-              <Link href="/" className="group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-accent to-orange-600 flex items-center justify-center text-xl shadow-lg">
-                    🏀
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold group-hover:text-brand-accent transition">
-                      Court<span className="text-brand-accent">Pulse</span>
-                    </h1>
-                    <p className="text-xs opacity-60 -mt-0.5">Real-time NBA Scores</p>
-                  </div>
-                </div>
+            <nav className="flex flex-wrap items-center justify-between gap-3 pb-4">
+              <Link
+                href="/"
+                className="text-xl font-semibold tracking-tight text-gray-900 transition hover:text-brand-accent"
+              >
+                CourtPulse
               </Link>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <Link
                   href="/standings"
-                  className="text-sm font-medium hover:text-brand-accent transition"
+                  className="inline-flex items-center rounded-full border border-black/10 bg-white/80 px-4 py-1.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
                 >
                   Standings
                 </Link>
-                {/* Admin-only settings cog (requires company context) */}
                 {isAdmin ? (
-                <Link
-                  href="/dashboard"
-                  aria-label="Settings"
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border-2 border-black/10 hover:border-black/20"
-                  title="Manage settings"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-                  </svg>
-                </Link>
+                  <Link
+                    href="/dashboard"
+                    aria-label="Settings"
+                    className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
+                    title="Manage notifications"
+                  >
+                    Admin
+                  </Link>
                 ) : null}
               </div>
             </nav>

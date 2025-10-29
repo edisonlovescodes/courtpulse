@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
-import BusinessCard from './BusinessCard'
 
 type Game = {
   id: string
@@ -22,6 +21,24 @@ type Game = {
   awayTricode?: string
 }
 
+type LiveGamesProps = {
+  companyId?: string
+  isAdmin?: boolean
+}
+
+type NotificationSettings = {
+  id?: number
+  companyId?: string
+  enabled: boolean
+  channelId: string | null
+  channelName: string | null
+  updateFrequency: string
+  notifyGameStart: boolean
+  notifyGameEnd: boolean
+  notifyQuarterEnd: boolean
+  trackedGames: string[]
+}
+
 function isLive(status: string) {
   const s = status.toLowerCase()
   return s.includes('live') || s.includes('in progress')
@@ -37,12 +54,52 @@ function formatRecord(wins?: number, losses?: number): string {
   return `${wins}-${losses}`
 }
 
-export default function LiveGames() {
+function formatGameClock(clock?: string): string {
+  if (!clock) return ''
+  const match = clock.match(/PT(\d+)M([\d.]+)S/i)
+  if (!match) return clock
+  const mins = match[1]
+  const secs = Math.floor(parseFloat(match[2]))
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const normaliseSettings = (raw: any): NotificationSettings => {
+  const tracked = raw?.trackedGames
+  const trackedGames = Array.isArray(tracked)
+    ? tracked.map((id: any) => String(id))
+    : typeof tracked === 'string'
+      ? tracked
+          .split(',')
+          .map((id: string) => id.trim())
+          .filter(Boolean)
+      : []
+
+  return {
+    id: raw?.id,
+    companyId: raw?.companyId ?? undefined,
+    enabled: Boolean(raw?.enabled),
+    channelId: raw?.channelId ?? null,
+    channelName: raw?.channelName ?? null,
+    updateFrequency: raw?.updateFrequency ?? 'every_point',
+    notifyGameStart: raw?.notifyGameStart ?? true,
+    notifyGameEnd: raw?.notifyGameEnd ?? true,
+    notifyQuarterEnd: raw?.notifyQuarterEnd ?? true,
+    trackedGames,
+  }
+}
+
+export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifFetched, setNotifFetched] = useState(false)
+  const [notifSaving, setNotifSaving] = useState(false)
+  const [notifError, setNotifError] = useState<string | null>(null)
+
+  const loadGames = useCallback(async () => {
     try {
       const ts = Date.now()
       const res = await fetch(`/api/games/today?t=${ts}`, {
@@ -64,208 +121,366 @@ export default function LiveGames() {
   }, [])
 
   useEffect(() => {
-    load()
-    const id = setInterval(load, 10_000)
+    loadGames()
+    const id = setInterval(loadGames, 10_000)
     return () => clearInterval(id)
-  }, [load])
+  }, [loadGames])
+
+  const loadNotifications = useCallback(async () => {
+    if (!isAdmin || !companyId) return
+    setNotifLoading(true)
+    setNotifError(null)
+    try {
+      const res = await fetch(`/api/admin/notifications?company_id=${companyId}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      const data = await res.json()
+      setNotifSettings(normaliseSettings(data.settings))
+    } catch (e: any) {
+      setNotifError(e.message || 'Failed to load notifications')
+      setNotifSettings(null)
+    } finally {
+      setNotifLoading(false)
+      setNotifFetched(true)
+    }
+  }, [companyId, isAdmin])
+
+  useEffect(() => {
+    if (!isAdmin || !companyId) {
+      setNotifSettings(null)
+      setNotifFetched(false)
+      setNotifError(null)
+      return
+    }
+    loadNotifications()
+  }, [companyId, isAdmin, loadNotifications])
+
+  const toggleNotifications = useCallback(async () => {
+    if (!companyId || !notifSettings) return
+    if (!notifSettings.channelId) {
+      setNotifError('Select a chat channel in settings before enabling notifications.')
+      return
+    }
+    setNotifSaving(true)
+    setNotifError(null)
+    try {
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          enabled: !notifSettings.enabled,
+          channelId: notifSettings.channelId,
+          channelName: notifSettings.channelName,
+          updateFrequency: notifSettings.updateFrequency,
+          notifyGameStart: notifSettings.notifyGameStart,
+          notifyGameEnd: notifSettings.notifyGameEnd,
+          notifyQuarterEnd: notifSettings.notifyQuarterEnd,
+          trackedGames: notifSettings.trackedGames,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to update notifications')
+      const updated = await res.json()
+      setNotifSettings(normaliseSettings(updated.settings))
+    } catch (e: any) {
+      setNotifError(e.message || 'Failed to update notifications')
+    } finally {
+      setNotifSaving(false)
+    }
+  }, [companyId, notifSettings])
 
   const liveGames = useMemo(() => games.filter((g) => isLive(g.status)), [games])
   const otherGames = useMemo(() => games.filter((g) => !isLive(g.status)), [games])
 
   const hasAccess = true
+  const showAdminControls = Boolean(isAdmin && companyId)
+  const toggleDisabled =
+    !notifSettings ||
+    !notifSettings.channelId ||
+    notifSaving ||
+    (notifLoading && !notifFetched)
+  const toggleLabel = notifSaving
+    ? 'Updating...'
+    : notifSettings?.enabled
+      ? 'Turn Off'
+      : 'Turn On'
+
+  const notifStatus = (() => {
+    if (!showAdminControls) return ''
+    if (notifLoading && !notifFetched) return 'Checking notification status...'
+    if (notifError && !notifSettings) return 'Unable to load notification settings'
+    if (!notifSettings) return 'Notifications unavailable'
+    if (!notifSettings.channelId) return 'Assign a chat channel in settings to enable notifications'
+    return notifSettings.enabled
+      ? `On for ${notifSettings.channelName || 'selected chat'}`
+      : 'Currently off'
+  })()
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="rounded-2xl bg-white/70 border border-black/10 p-8 animate-pulse h-48" />
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-xl bg-white/70 border border-black/10 p-6 h-36 animate-pulse" />
-          <div className="rounded-xl bg-white/70 border border-black/10 p-6 h-36 animate-pulse" />
+      <div className="space-y-6">
+        {showAdminControls && (
+          <div className="h-24 rounded-2xl border border-black/10 bg-white/70 animate-pulse" />
+        )}
+        <div className="h-32 rounded-2xl border border-black/10 bg-white/70 animate-pulse" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="h-28 rounded-xl border border-black/10 bg-white/70 animate-pulse" />
+          <div className="h-28 rounded-xl border border-black/10 bg-white/70 animate-pulse" />
         </div>
       </div>
     )
   }
 
   return (
-    <>
-      <div className="relative rounded-2xl bg-gradient-to-br from-brand-accent/10 via-orange-50 to-red-50 p-8 md:p-12 overflow-hidden border border-brand-accent/20">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent/10 rounded-full blur-3xl"></div>
-        <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 text-xs font-semibold text-brand-accent mb-4 shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></div>
-            Live Updates
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Today&apos;s NBA Games</h2>
-          <p className="text-lg opacity-70 max-w-2xl">Real-time scores</p>
-          <div className="flex items-center gap-4 mt-6">
-            <div className="text-xs px-4 py-2 rounded-full bg-white shadow-sm border border-black/5 font-medium">
-              {games.length} {games.length === 1 ? 'Game' : 'Games'} Today
+    <div className="space-y-8">
+      {showAdminControls && (
+        <section className="rounded-2xl border border-black/10 bg-white/80 p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Notifications</p>
+              <p className="text-xs text-gray-600">{notifStatus}</p>
             </div>
-            {liveGames.length > 0 && (
-              <div className="text-xs px-4 py-2 rounded-full bg-red-500 text-white font-medium flex items-center gap-1.5 shadow-lg">
-                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
-                {liveGames.length} Live Now
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleNotifications}
+                disabled={toggleDisabled}
+                className="inline-flex items-center justify-center rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:bg-black/[0.03] disabled:opacity-50"
+              >
+                {toggleLabel}
+              </button>
+              <Link
+                href="/dashboard"
+                className="text-xs font-semibold text-brand-accent hover:underline"
+              >
+                Settings
+              </Link>
+            </div>
+          </div>
+          {notifError && (
+            <p className="mt-3 text-xs text-red-600">{notifError}</p>
+          )}
+          {!notifError && notifSettings && !notifSettings.channelId && (
+            <p className="mt-3 text-xs text-amber-600">
+              Select a chat channel in settings before enabling notifications.
+            </p>
+          )}
+        </section>
+      )}
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {liveGames.length > 0 && (
+        <section className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-1 rounded-full bg-red-500" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    Live
+                  </span>
+                  <h3 className="text-lg font-bold">Live Now</h3>
+                </div>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Auto-updating
+                </p>
+              </div>
+            </div>
+            {showAdminControls && notifSettings?.enabled && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                Notifications On
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {liveGames.length > 0 && (
-        <section className="space-y-4 mt-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-              <h3 className="text-lg font-bold">Live Now</h3>
-            </div>
-            <div className="text-xs opacity-50">Auto-updating</div>
-          </div>
           <div className="grid gap-4">
             {liveGames.map((g) => (
-              <div key={g.id} className="group relative rounded-2xl p-6 bg-gradient-to-br from-white to-red-50/50 border-2 border-red-200 hover:border-red-400 transition-all hover:shadow-xl">
-                <div className="absolute top-3 right-3">
-                  <div className="px-3 py-1 rounded-full bg-red-500 text-white text-xs font-bold flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+              <Link
+                key={g.id}
+                href={`/game/${g.id}`}
+                className="group relative block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
+              >
+                <div className="absolute right-3 top-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                     LIVE
-                  </div>
+                  </span>
                 </div>
-                <div className="space-y-4">
-                  <div className="text-sm opacity-60 font-medium">
-                    {g.period > 0 && (
-                      <span>
-                        Q{g.period}
-                        {g.gameClock && (
-                          <span className="ml-2 font-mono">{formatGameClock(g.gameClock)}</span>
-                        )}
+
+                {g.period > 0 && (
+                  <div className="text-sm font-medium text-gray-500">
+                    Q{g.period}
+                    {g.gameClock && (
+                      <span className="ml-2 font-mono text-gray-700">
+                        {formatGameClock(g.gameClock)}
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-6">
-                    <div className="text-right flex flex-col items-end">
-                      <div className="flex items-center gap-3 mb-2">
-                        {g.awayTeamId && (
-                          <img
-                            src={getTeamLogoUrl(g.awayTeamId)}
-                            alt={g.awayTeam}
-                            className="w-12 h-12 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                          />
+                )}
+
+                <div className="mt-4 grid grid-cols-[1fr,auto,1fr] items-center gap-6">
+                  <div className="flex flex-col items-end gap-3 text-right">
+                    <div className="flex items-center gap-3">
+                      {g.awayTeamId && (
+                        <img
+                          src={getTeamLogoUrl(g.awayTeamId)}
+                          alt={g.awayTeam}
+                          className="h-12 w-12 object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
+                      )}
+                      <div>
+                        <div className="text-lg font-bold">{g.awayTeam}</div>
+                        {formatRecord(g.awayWins, g.awayLosses) && (
+                          <div className="text-sm text-gray-600">
+                            {formatRecord(g.awayWins, g.awayLosses)}
+                          </div>
                         )}
-                        <div>
-                          <div className="text-lg font-bold">{g.awayTeam}</div>
-                          {formatRecord(g.awayWins, g.awayLosses) && (
-                            <div className="text-sm text-gray-600">{formatRecord(g.awayWins, g.awayLosses)}</div>
-                          )}
-                        </div>
                       </div>
-                      {hasAccess ? (
-                        <div className="text-4xl font-black text-brand-accent">{g.awayScore}</div>
-                      ) : (
-                        <div className="text-4xl font-black text-gray-300">--</div>
+                    </div>
+                    <div className="text-4xl font-black text-brand-accent">
+                      {hasAccess ? g.awayScore : '--'}
+                    </div>
+                  </div>
+
+                  <div className="text-2xl font-bold text-gray-300">VS</div>
+
+                  <div className="flex flex-col items-start gap-3 text-left">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <div className="text-lg font-bold">{g.homeTeam}</div>
+                        {formatRecord(g.homeWins, g.homeLosses) && (
+                          <div className="text-sm text-gray-600">
+                            {formatRecord(g.homeWins, g.homeLosses)}
+                          </div>
+                        )}
+                      </div>
+                      {g.homeTeamId && (
+                        <img
+                          src={getTeamLogoUrl(g.homeTeamId)}
+                          alt={g.homeTeam}
+                          className="h-12 w-12 object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
                       )}
                     </div>
-                    <div className="text-2xl opacity-20 font-bold">VS</div>
-                    <div className="text-left flex flex-col items-start">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{g.homeTeam}</div>
-                          {formatRecord(g.homeWins, g.homeLosses) && (
-                            <div className="text-sm text-gray-600">{formatRecord(g.homeWins, g.homeLosses)}</div>
-                          )}
-                        </div>
-                        {g.homeTeamId && (
-                          <img
-                            src={getTeamLogoUrl(g.homeTeamId)}
-                            alt={g.homeTeam}
-                            className="w-12 h-12 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                          />
-                        )}
-                      </div>
-                      {hasAccess ? (
-                        <div className="text-4xl font-black text-brand-accent">{g.homeScore}</div>
-                      ) : (
-                        <div className="text-4xl font-black text-gray-300">--</div>
-                      )}
+                    <div className="text-4xl font-black text-brand-accent">
+                      {hasAccess ? g.homeScore : '--'}
                     </div>
                   </div>
                 </div>
-                <Link href={`/game/${g.id}`} className="absolute bottom-3 left-6 right-6 flex justify-end">
-                  <div className="text-xs font-medium text-brand-accent group-hover:underline">View Details →</div>
-                </Link>
-              </div>
+
+                <div className="mt-6 flex items-center justify-end text-xs font-semibold text-brand-accent opacity-0 transition group-hover:opacity-100">
+                  View details →
+                </div>
+              </Link>
             ))}
           </div>
         </section>
       )}
 
       {otherGames.length > 0 && (
-        <section className="space-y-4 mt-8">
-          {liveGames.length > 0 && <h3 className="text-lg font-bold opacity-60">Upcoming & Completed</h3>}
-          <div className="grid md:grid-cols-2 gap-4">
+        <section className="space-y-4">
+          {liveGames.length > 0 && (
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Upcoming &amp; Completed
+            </h3>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
             {otherGames.map((g) => {
               const isFinal = g.status.toLowerCase().includes('final')
               return (
-                <div key={g.id} className="group rounded-xl p-5 bg-white border border-black/10 hover:border-brand-accent/30 hover:shadow-lg transition-all">
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1">
+                <Link
+                  key={g.id}
+                  href={`/game/${g.id}`}
+                  className="group block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
                         {g.awayTeamId && (
                           <img
                             src={getTeamLogoUrl(g.awayTeamId)}
                             alt={g.awayTeam}
-                            className="w-8 h-8 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            className="h-8 w-8 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
                           />
                         )}
-                        <div className="flex-1">
+                        <div>
                           <div className="text-sm font-bold">{g.awayTeam}</div>
                           {formatRecord(g.awayWins, g.awayLosses) && (
-                            <div className="text-xs text-gray-500">{formatRecord(g.awayWins, g.awayLosses)}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatRecord(g.awayWins, g.awayLosses)}
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        {hasAccess ? (
-                          <div className="text-2xl font-bold">{g.awayScore}</div>
-                        ) : (
-                          <div className="text-2xl font-bold text-gray-300">--</div>
-                        )}
+                      <div className="text-2xl font-bold">
+                        {hasAccess ? g.awayScore : '--'}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1">
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
                         {g.homeTeamId && (
                           <img
                             src={getTeamLogoUrl(g.homeTeamId)}
                             alt={g.homeTeam}
-                            className="w-8 h-8 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            className="h-8 w-8 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
                           />
                         )}
-                        <div className="flex-1">
-                          <div className="text-sm font-bold text-brand-text/80">{g.homeTeam}</div>
+                        <div>
+                          <div className="text-sm font-bold text-brand-text">
+                            {g.homeTeam}
+                          </div>
                           {formatRecord(g.homeWins, g.homeLosses) && (
-                            <div className="text-xs text-gray-500">{formatRecord(g.homeWins, g.homeLosses)}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatRecord(g.homeWins, g.homeLosses)}
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        {hasAccess ? (
-                          <div className="text-2xl font-bold text-brand-text/80">{g.homeScore}</div>
-                        ) : (
-                          <div className="text-2xl font-bold text-gray-300">--</div>
-                        )}
+                      <div className="text-2xl font-bold text-brand-text">
+                        {hasAccess ? g.homeScore : '--'}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-black/5">
-                    <div className={`text-xs font-semibold px-2 py-1 rounded ${isFinal ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'}`}>{g.status}</div>
-                    <Link href={`/game/${g.id}`} className="text-xs text-brand-accent group-hover:underline font-medium">
-                      View →
-                    </Link>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs">
+                    <span
+                      className={`inline-flex items-center rounded px-2 py-1 font-semibold ${
+                        isFinal ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      {g.status}
+                    </span>
+                    <span className="font-medium text-brand-accent transition group-hover:underline">
+                      View details →
+                    </span>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>
@@ -273,29 +488,13 @@ export default function LiveGames() {
       )}
 
       {games.length === 0 && (
-        <div className="text-center py-24">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-brand-accent/20 to-orange-100 mb-6">
-            <div className="text-5xl">🏀</div>
-          </div>
-          <h3 className="text-2xl font-bold mb-2">No Games Today</h3>
-          <p className="text-lg opacity-70">Check back during the NBA season for live scores!</p>
+        <div className="rounded-2xl border border-black/10 bg-white/80 p-12 text-center">
+          <h3 className="text-xl font-bold text-gray-900">No NBA games today</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            Fresh matchups will appear here as soon as the schedule resumes.
+          </p>
         </div>
       )}
-
-      {games.length > 0 && (
-        <div className="mt-12">
-          <BusinessCard />
-        </div>
-      )}
-    </>
+    </div>
   )
 }
-  function formatGameClock(clock?: string): string {
-    if (!clock) return ''
-    const match = clock.match(/PT(\d+)M([\d.]+)S/i)
-    if (!match) return clock
-    const mins = match[1]
-    const secs = Math.floor(parseFloat(match[2]))
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-

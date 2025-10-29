@@ -78,7 +78,7 @@ export default function NotificationSettings() {
       setNotifyQuarterEnd(s.notifyQuarterEnd)
       setTrackedGames(s.trackedGames || [])
 
-      setMessage('Settings loaded successfully')
+      setMessage('')
     } catch (e: any) {
       setMessage(`Error: ${e.message}`)
     } finally {
