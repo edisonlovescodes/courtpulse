@@ -15,7 +15,10 @@ export async function processGameNotifications() {
     })
 
     for (const settings of allSettings) {
-      if (!settings.channelId || !settings.trackedGames) {
+      const channelIds = settings.channelId
+        ? settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
+        : []
+      if (channelIds.length === 0 || !settings.trackedGames) {
         continue
       }
 
@@ -28,7 +31,7 @@ export async function processGameNotifications() {
       // Process each tracked game
       for (const gameId of trackedGames) {
         try {
-          await processGameNotification(settings, gameId)
+          await processGameNotification(settings, channelIds, gameId)
         } catch (e) {
           console.error(`Error processing game ${gameId} for company ${settings.companyId}:`, e)
         }
@@ -45,15 +48,15 @@ export async function processGameNotifications() {
 async function processGameNotification(
   settings: {
     companyId: string
-    channelId: string | null
     updateFrequency: string
     notifyGameStart: boolean
     notifyGameEnd: boolean
     notifyQuarterEnd: boolean
   },
+  channelIds: string[],
   gameId: string
 ) {
-  if (!settings.channelId) return
+  if (channelIds.length === 0) return
 
   // Fetch current game data
   const game = await getGameById(gameId)
@@ -167,7 +170,7 @@ async function processGameNotification(
     })
 
     try {
-      await createMessage(settings.channelId, message)
+      await Promise.all(channelIds.map((id) => createMessage(id, message)))
     } catch (err) {
       // Roll back state so a future run can retry
       await prisma.gameNotificationState.update({

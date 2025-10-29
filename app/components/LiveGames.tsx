@@ -31,6 +31,7 @@ type NotificationSettings = {
   companyId?: string
   enabled: boolean
   channelId: string | null
+  channelIds: string[]
   channelName: string | null
   updateFrequency: string
   notifyGameStart: boolean
@@ -70,15 +71,27 @@ const normaliseSettings = (raw: any): NotificationSettings => {
     : typeof tracked === 'string'
       ? tracked
           .split(',')
-          .map((id: string) => id.trim())
-          .filter(Boolean)
+        .map((id: string) => id.trim())
+        .filter(Boolean)
       : []
+
+  const rawChannelIds = Array.isArray(raw?.channelIds)
+    ? raw.channelIds
+    : typeof raw?.channelId === 'string'
+      ? raw.channelId.split(',')
+      : raw?.channelId
+        ? [raw.channelId]
+        : []
+  const channelIds = rawChannelIds
+    .map((id: any) => String(id).trim())
+    .filter(Boolean)
 
   return {
     id: raw?.id,
     companyId: raw?.companyId ?? undefined,
     enabled: Boolean(raw?.enabled),
-    channelId: raw?.channelId ?? null,
+    channelId: channelIds[0] ?? null,
+    channelIds,
     channelName: raw?.channelName ?? null,
     updateFrequency: raw?.updateFrequency ?? 'every_point',
     notifyGameStart: raw?.notifyGameStart ?? true,
@@ -98,6 +111,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   const [notifFetched, setNotifFetched] = useState(false)
   const [notifSaving, setNotifSaving] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
+  const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
 
   const loadGames = useCallback(async () => {
     try {
@@ -162,8 +176,8 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
 
   const toggleNotifications = useCallback(async () => {
     if (!companyId || !notifSettings) return
-    if (!notifSettings.channelId) {
-      setNotifError('Select a chat channel in settings before enabling notifications.')
+    if (!notifSettings.channelIds.length) {
+      setNotifError('Select at least one chat channel in settings before enabling notifications.')
       return
     }
     setNotifSaving(true)
@@ -175,7 +189,8 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
         body: JSON.stringify({
           companyId,
           enabled: !notifSettings.enabled,
-          channelId: notifSettings.channelId,
+          channelIds: notifSettings.channelIds,
+          channelId: notifSettings.channelIds[0] ?? null,
           channelName: notifSettings.channelName,
           updateFrequency: notifSettings.updateFrequency,
           notifyGameStart: notifSettings.notifyGameStart,
@@ -194,6 +209,54 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
     }
   }, [companyId, notifSettings])
 
+  const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
+    if (!companyId || !notifSettings) return
+    if (!notifSettings.channelIds.length) {
+      setNotifError('Select at least one chat channel in settings before following games.')
+      return
+    }
+
+    const previousTracked = [...notifSettings.trackedGames]
+    const nextTracked = nextChecked
+      ? Array.from(new Set([...previousTracked, gameId]))
+      : previousTracked.filter((id) => id !== gameId)
+
+    setTrackingBusy((prev) => ({ ...prev, [gameId]: true }))
+    setNotifSettings((prev) => (prev ? { ...prev, trackedGames: nextTracked } : prev))
+    setNotifError(null)
+
+    try {
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          enabled: notifSettings.enabled,
+          channelIds: notifSettings.channelIds,
+          channelId: notifSettings.channelIds[0] ?? null,
+          channelName: notifSettings.channelName,
+          updateFrequency: notifSettings.updateFrequency,
+          notifyGameStart: notifSettings.notifyGameStart,
+          notifyGameEnd: notifSettings.notifyGameEnd,
+          notifyQuarterEnd: notifSettings.notifyQuarterEnd,
+          trackedGames: nextTracked,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to update followed games')
+      const updated = await res.json()
+      setNotifSettings(normaliseSettings(updated.settings))
+    } catch (e: any) {
+      setNotifError(e.message || 'Failed to update followed games')
+      setNotifSettings((prev) => (prev ? { ...prev, trackedGames: previousTracked } : prev))
+    } finally {
+      setTrackingBusy((prev) => {
+        const next = { ...prev }
+        delete next[gameId]
+        return next
+      })
+    }
+  }, [companyId, notifSettings])
+
   const liveGames = useMemo(() => games.filter((g) => isLive(g.status)), [games])
   const otherGames = useMemo(() => games.filter((g) => !isLive(g.status)), [games])
 
@@ -201,7 +264,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   const showAdminControls = Boolean(isAdmin && companyId)
   const toggleDisabled =
     !notifSettings ||
-    !notifSettings.channelId ||
+    !notifSettings.channelIds.length ||
     notifSaving ||
     (notifLoading && !notifFetched)
   const toggleLabel = notifSaving
@@ -215,10 +278,15 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
     if (notifLoading && !notifFetched) return 'Checking notification status...'
     if (notifError && !notifSettings) return 'Unable to load notification settings'
     if (!notifSettings) return 'Notifications unavailable'
-    if (!notifSettings.channelId) return 'Assign a chat channel in settings to enable notifications'
-    return notifSettings.enabled
-      ? `On for ${notifSettings.channelName || 'selected chat'}`
-      : 'Currently off'
+    if (!notifSettings.channelIds.length) return 'Assign chat channels in settings to enable notifications'
+    if (notifSettings.enabled) {
+      if (notifSettings.channelName) {
+        const extra = notifSettings.channelIds.length > 1 ? ` +${notifSettings.channelIds.length - 1} more` : ''
+        return `On for ${notifSettings.channelName}${extra}`
+      }
+      return `On for ${notifSettings.channelIds.length} channel${notifSettings.channelIds.length > 1 ? 's' : ''}`
+    }
+    return 'Currently off'
   })()
 
   if (loading) {
@@ -265,9 +333,9 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
           {notifError && (
             <p className="mt-3 text-xs text-red-600">{notifError}</p>
           )}
-          {!notifError && notifSettings && !notifSettings.channelId && (
+          {!notifError && notifSettings && !notifSettings.channelIds.length && (
             <p className="mt-3 text-xs text-amber-600">
-              Select a chat channel in settings before enabling notifications.
+              Select at least one chat channel in settings before enabling notifications.
             </p>
           )}
         </section>
@@ -281,21 +349,18 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
 
       {liveGames.length > 0 && (
         <section className="space-y-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-1 rounded-full bg-red-500" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                    Live
-                  </span>
-                  <h3 className="text-lg font-bold">Live Now</h3>
-                </div>
-                <p className="text-xs uppercase tracking-wide text-gray-500">
-                  Auto-updating
-                </p>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                  Live
+                </span>
+                <h3 className="text-lg font-bold text-gray-900">Live Now</h3>
               </div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Auto-updating
+              </span>
             </div>
             {showAdminControls && notifSettings?.enabled && (
               <div className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">
@@ -312,6 +377,23 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
                 href={`/game/${g.id}`}
                 className="group relative block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
               >
+                {showAdminControls && notifSettings && (
+                  <label
+                    className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
+                      checked={notifSettings.trackedGames.includes(g.id)}
+                      disabled={Boolean(trackingBusy[g.id])}
+                      onChange={(e) => toggleTrackedGame(g.id, e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    Follow
+                  </label>
+                )}
+
                 <div className="absolute right-3 top-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
@@ -410,8 +492,24 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
                 <Link
                   key={g.id}
                   href={`/game/${g.id}`}
-                  className="group block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
+                  className="group relative block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
                 >
+                  {showAdminControls && notifSettings && (
+                    <label
+                      className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
+                        checked={notifSettings.trackedGames.includes(g.id)}
+                        disabled={Boolean(trackingBusy[g.id])}
+                        onChange={(e) => toggleTrackedGame(g.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      Follow
+                    </label>
+                  )}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">

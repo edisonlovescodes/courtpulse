@@ -32,16 +32,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 >
                   Standings
                 </Link>
-                {isAdmin ? (
-                  <Link
-                    href="/dashboard"
-                    aria-label="Settings"
-                    className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
-                    title="Manage notifications"
-                  >
-                    Admin
-                  </Link>
-                ) : null}
               </div>
             </nav>
           </header>

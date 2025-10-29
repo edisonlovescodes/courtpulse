@@ -16,9 +16,19 @@ export async function POST(req: NextRequest) {
     // If this is a test call (Authorization: Bearer TEST_WEBHOOK_SECRET), allow sending a chat message
     if (testSecret && auth === `Bearer ${testSecret}`) {
       const companyId = body.companyId as string | undefined
-      const channelId = body.channelId as string | undefined
-      if (!companyId || !channelId) {
-        return NextResponse.json({ ok: false, error: 'companyId and channelId required' }, { status: 400 })
+      const channelIdsRaw = body.channelIds
+      const channelIdSingle = body.channelId as string | undefined
+      let channelIds: string[] = []
+      if (Array.isArray(channelIdsRaw)) {
+        channelIds = channelIdsRaw.map((id) => String(id).trim()).filter(Boolean)
+      } else if (typeof channelIdsRaw === 'string') {
+        channelIds = channelIdsRaw.split(',').map((id) => id.trim()).filter(Boolean)
+      } else if (typeof channelIdSingle === 'string') {
+        channelIds = channelIdSingle.split(',').map((id) => id.trim()).filter(Boolean)
+      }
+
+      if (!companyId || channelIds.length === 0) {
+        return NextResponse.json({ ok: false, error: 'companyId and at least one channelId required' }, { status: 400 })
       }
 
       // If specific game-style fields provided, format; else send raw text
@@ -39,7 +49,7 @@ export async function POST(req: NextRequest) {
         content = String(body.text || 'Test message from webhook')
       }
 
-      const posted = await createMessage(channelId, content)
+      const posted = await Promise.all(channelIds.map((id) => createMessage(id, content)))
       return NextResponse.json({ ok: true, posted })
     }
 

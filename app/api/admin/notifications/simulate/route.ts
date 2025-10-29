@@ -65,14 +65,21 @@ export async function POST(req: Request) {
       allow = true
     }
 
-    // Resolve channel
-    let channelId = channelIdInput as string | undefined
-    if (!channelId) {
-      const settings = await prisma.notificationSettings.findUnique({ where: { companyId } })
-      channelId = settings?.channelId || undefined
+    // Resolve channels
+    let channelIds: string[] = []
+    if (Array.isArray(channelIdInput)) {
+      channelIds = channelIdInput.map((id) => String(id).trim()).filter(Boolean)
+    } else if (typeof channelIdInput === 'string') {
+      channelIds = channelIdInput.split(',').map((id) => id.trim()).filter(Boolean)
     }
-    if (!channelId) {
-      return NextResponse.json({ error: 'No channel configured. Select a channel and save settings first.' }, { status: 400 })
+    if (channelIds.length === 0) {
+      const settings = await prisma.notificationSettings.findUnique({ where: { companyId } })
+      if (settings?.channelId) {
+        channelIds = settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
+      }
+    }
+    if (channelIds.length === 0) {
+      return NextResponse.json({ error: 'No channel configured. Select at least one channel and save settings first.' }, { status: 400 })
     }
 
     const message = formatGameUpdateMessage({
@@ -86,12 +93,13 @@ export async function POST(req: Request) {
       eventType,
     })
 
-    const res = await createMessage(channelId, message)
+    const results = await Promise.all(
+      channelIds.map((id) => createMessage(id, message))
+    )
 
-    return NextResponse.json({ ok: true, posted: res })
+    return NextResponse.json({ ok: true, posted: results })
   } catch (e: any) {
     console.error('Error simulating notification:', e)
     return NextResponse.json({ error: e.message || 'Failed to simulate' }, { status: 500 })
   }
 }
-

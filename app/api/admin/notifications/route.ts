@@ -55,10 +55,17 @@ export async function GET(req: Request) {
       })
     }
 
+    const channelIds = settings.channelId
+      ? settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
+      : []
+    const primaryChannelId = channelIds[0] ?? null
+
     // Convert comma-separated to array for client
     const settingsForClient = {
       ...settings,
+      channelId: primaryChannelId,
       trackedGames: settings.trackedGames ? settings.trackedGames.split(',').filter(Boolean) : [],
+      channelIds,
     }
 
     return NextResponse.json({ settings: settingsForClient })
@@ -83,6 +90,7 @@ export async function POST(req: Request) {
       companyId,
       enabled,
       channelId,
+      channelIds: inputChannelIds,
       channelName,
       updateFrequency,
       notifyGameStart,
@@ -114,6 +122,13 @@ export async function POST(req: Request) {
       allow = true
     }
 
+    const channelIds = Array.isArray(inputChannelIds)
+      ? inputChannelIds.map((id: any) => String(id).trim()).filter(Boolean)
+      : channelId
+        ? [String(channelId).trim()]
+        : []
+    const channelIdCsv = channelIds.join(',')
+
     // Convert array to comma-separated string for storage
     const trackedGamesStr = Array.isArray(trackedGames) ? trackedGames.join(',') : (trackedGames || '')
 
@@ -122,7 +137,7 @@ export async function POST(req: Request) {
       create: {
         companyId,
         enabled: enabled ?? false,
-        channelId,
+        channelId: channelIdCsv,
         channelName,
         updateFrequency: updateFrequency ?? 'every_point',
         notifyGameStart: notifyGameStart ?? true,
@@ -132,7 +147,7 @@ export async function POST(req: Request) {
       },
       update: {
         enabled,
-        channelId,
+        channelId: channelIdCsv,
         channelName,
         updateFrequency,
         notifyGameStart,
@@ -143,9 +158,15 @@ export async function POST(req: Request) {
     })
 
     // Convert back to array for client
+    const savedChannelIds = settings.channelId
+      ? settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
+      : []
+
     const settingsForClient = {
       ...settings,
       trackedGames: settings.trackedGames ? settings.trackedGames.split(',').filter(Boolean) : [],
+      channelIds: savedChannelIds,
+      channelId: savedChannelIds[0] ?? null,
     }
 
     return NextResponse.json({ settings: settingsForClient })

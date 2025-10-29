@@ -16,6 +16,7 @@ type Settings = {
   companyId: string
   enabled: boolean
   channelId: string | null
+  channelIds?: string[]
   channelName: string | null
   updateFrequency: string
   notifyGameStart: boolean
@@ -35,7 +36,7 @@ export default function NotificationSettings() {
 
   // Form state
   const [enabled, setEnabled] = useState(false)
-  const [selectedChannel, setSelectedChannel] = useState('')
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([])
   const [updateFrequency, setUpdateFrequency] = useState('every_point')
   const [notifyGameStart, setNotifyGameStart] = useState(true)
   const [notifyGameEnd, setNotifyGameEnd] = useState(true)
@@ -71,7 +72,12 @@ export default function NotificationSettings() {
 
       setSettings(s)
       setEnabled(s.enabled)
-      setSelectedChannel(s.channelId || '')
+      const initialChannelIds = Array.isArray(s.channelIds)
+        ? s.channelIds
+        : s.channelId
+          ? [s.channelId]
+          : []
+      setSelectedChannels(initialChannelIds)
       setUpdateFrequency(s.updateFrequency)
       setNotifyGameStart(s.notifyGameStart)
       setNotifyGameEnd(s.notifyGameEnd)
@@ -96,7 +102,9 @@ export default function NotificationSettings() {
     setMessage('')
 
     try {
-      const channelName = channels.find(c => c.id === selectedChannel)?.experience.name || null
+      const channelName = selectedChannels.length
+        ? channels.find(c => c.id === selectedChannels[0])?.experience.name || null
+        : null
 
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
@@ -104,7 +112,8 @@ export default function NotificationSettings() {
         body: JSON.stringify({
           companyId,
           enabled,
-          channelId: selectedChannel || null,
+          channelId: selectedChannels[0] || null,
+          channelIds: selectedChannels,
           channelName,
           updateFrequency,
           notifyGameStart,
@@ -193,7 +202,7 @@ export default function NotificationSettings() {
               <div>
                 <div className="font-bold">Enable Game Notifications</div>
                 <div className="text-sm text-gray-600">
-                  Send live game updates to your selected chat channel
+                  Send live game updates to your selected chat channels
                 </div>
               </div>
             </label>
@@ -202,21 +211,41 @@ export default function NotificationSettings() {
           {/* Channel Selection */}
           <div className="bg-white rounded-2xl border-2 border-black/10 p-6 space-y-4">
             <div>
-              <label className="block text-sm font-bold mb-2">Chat Channel</label>
-              <select
-                value={selectedChannel}
-                onChange={(e) => setSelectedChannel(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-black/10 rounded-lg focus:outline-none focus:border-brand-accent"
-              >
-                <option value="">Select a channel...</option>
-                {channels.map(channel => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.experience.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Choose which chat channel to send game updates to
+              <label className="block text-sm font-bold mb-2">Chat Channels</label>
+              {channels.length === 0 ? (
+                <p className="text-sm text-gray-500">No chat channels available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {channels.map(channel => {
+                    const checked = selectedChannels.includes(channel.id)
+                    return (
+                      <label
+                        key={channel.id}
+                        className="flex items-center gap-3 rounded-lg border border-black/5 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedChannels(prev =>
+                              prev.includes(channel.id)
+                                ? prev.filter(id => id !== channel.id)
+                                : [...prev, channel.id]
+                            )
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
+                        />
+                        <div>
+                          <div className="text-sm font-semibold">{channel.experience.name}</div>
+                          <div className="text-xs text-gray-500">Channel ID: {channel.id}</div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Choose one or more chat channels to receive live game updates.
               </p>
             </div>
           </div>
@@ -349,7 +378,7 @@ export default function NotificationSettings() {
           <div className="flex justify-end">
             <button
               onClick={saveSettings}
-              disabled={saving || !selectedChannel}
+              disabled={saving}
               className="px-8 py-3 bg-brand-accent text-white font-bold rounded-lg hover:bg-brand-accent/90 disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Settings'}
