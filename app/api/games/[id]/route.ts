@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getAuthFromHeaders } from '@/lib/whop'
 import { getGameById, type NBAGame } from '@/lib/ball'
 
 // Force dynamic rendering - no caching
@@ -20,8 +19,6 @@ function formatStatus(game: NBAGame): string {
 
 export async function GET(req: Request, { params }: any) {
   const gameId = params.id as string
-
-  const { userId, plan } = await getAuthFromHeaders(req.headers)
 
   try {
     const game = await getGameById(gameId)
