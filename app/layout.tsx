@@ -11,7 +11,14 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
-  const ctx = await resolveAdminContext({ headers: hdrs, url: '/' })
+  
+  // Extract company context from headers like the API endpoints do
+  const companyId = hdrs.get('X-Whop-Company-Id') || 
+                   hdrs.get('Whop-Company-Id') || 
+                   hdrs.get('X-Company-Id')
+  
+  const url = companyId ? `/?company_id=${companyId}` : '/'
+  const ctx = await resolveAdminContext({ headers: hdrs, url })
   const isAdmin = ctx.isAdmin
   return (
     <html lang="en">
