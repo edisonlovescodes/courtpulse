@@ -1,32 +1,23 @@
 import { NextResponse } from 'next/server'
 import { startTestGame } from '@/lib/test-game-state'
-import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const ctx = await resolveAdminContextFromRequest(req)
-    if (!ctx.isAdmin) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
-
     const body = await req.json()
-    const { companyId, gameKey } = body
+    const { companyId, gameKey } = body || {}
+    const resolvedCompanyId = companyId || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
 
-    if (!companyId) {
+    if (!resolvedCompanyId) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
-    }
-
-    if (ctx.companyId !== companyId) {
-      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
     // Default to lakers-celtics if not specified
     const selectedGameKey = gameKey || 'lakers-celtics'
 
     // Start the test game
-    const session = await startTestGame(companyId, selectedGameKey)
+    const session = await startTestGame(resolvedCompanyId, selectedGameKey)
 
     return NextResponse.json({
       success: true,

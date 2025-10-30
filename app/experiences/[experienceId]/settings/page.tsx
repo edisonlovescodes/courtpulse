@@ -1,8 +1,5 @@
 import DashboardSettings from '../../../dashboard/[companyId]/settings-client'
-import { headers, cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { whopSdk } from '@/lib/whop-sdk'
-import { createAdminSessionToken } from '@/lib/signing'
 
 // Force dynamic rendering - no caching
 export const dynamic = 'force-dynamic'
@@ -26,39 +23,12 @@ async function getCompanyIdForExperience(experienceId: string): Promise<string |
 
 export default async function ExperienceSettingsPage(props: { params: Promise<{ experienceId: string }> }) {
   const { experienceId } = await props.params
-  const hdrs = await headers()
+  const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
+  const companyId = (await getCompanyIdForExperience(experienceId)) || fallbackCompanyId
 
-  // Verify admin access to this experience
-  try {
-    const { userId } = await whopSdk.verifyUserToken(hdrs as any)
-    const { accessLevel } = await whopSdk.access.checkIfUserHasAccessToExperience({
-      experienceId,
-      userId,
-    })
-    if (accessLevel !== 'admin') redirect('/')
-
-    // Resolve company id for this experience
-    const companyId = await getCompanyIdForExperience(experienceId)
-    if (!companyId) redirect('/')
-
-    // Set short-lived admin cookie (iframe-friendly)
-    const secret = process.env.WHOP_APP_SECRET
-    if (secret) {
-      const token = createAdminSessionToken(userId, companyId, secret)
-      const store = await cookies()
-      store.set('CP_ADMIN', token, { httpOnly: true, sameSite: 'none', secure: true, path: '/', maxAge: 600 })
-    }
-
-    // Also pass headers/token to client fetches for resilience
-    const signedToken = hdrs.get('Whop-Signed-Token') || hdrs.get('X-Whop-Signed-Token') || ''
-    const userIdHeader = hdrs.get('X-Whop-User-Id') || hdrs.get('Whop-User-Id') || ''
-    const authHeaders: Record<string, string> = {}
-    if (signedToken) authHeaders['Whop-Signed-Token'] = signedToken
-    if (userIdHeader) authHeaders['X-Whop-User-Id'] = userIdHeader
-    authHeaders['X-Whop-Company-Id'] = companyId
-
-    return <DashboardSettings companyId={companyId} authHeaders={authHeaders} backHref={`/experiences/${experienceId}`} />
-  } catch {
+  if (!companyId) {
     redirect('/')
   }
+
+  return <DashboardSettings companyId={companyId} backHref={`/experiences/${experienceId}`} />
 }

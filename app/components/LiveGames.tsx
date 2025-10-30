@@ -107,8 +107,9 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const [error, setError] = useState<string | null>(null)
 
   // Simple: server tells us if user is admin via initialCompanyId
-  const companyId = initialCompanyId
-  const hasAdminAccess = Boolean(initialCompanyId)
+  const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
+  const companyId = initialCompanyId ?? fallbackCompanyId ?? undefined
+  const hasAdminAccess = Boolean(companyId)
 
   // DEBUG: Log what LiveGames receives
   console.log('[LiveGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })

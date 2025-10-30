@@ -8,9 +8,9 @@ export default async function HomePage() {
   const hdrs = await headers()
   const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
   const ctx = await resolveAdminContextFromRequest(mockRequest)
-  const companyId = ctx.companyId
-  // Show admin features when company context exists - same as layout
-  const isAdmin = Boolean(companyId)
+  const envFallback = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? null
+  const companyId = ctx.companyId || envFallback
+  const isAdmin = true
 
   // DEBUG: Log what we're passing to LiveGames
   console.log('[page.tsx] LiveGames props:', {

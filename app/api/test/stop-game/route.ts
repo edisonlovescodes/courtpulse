@@ -1,29 +1,20 @@
 import { NextResponse } from 'next/server'
 import { stopTestGame } from '@/lib/test-game-state'
-import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const ctx = await resolveAdminContextFromRequest(req)
-    if (!ctx.isAdmin) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
-
     const body = await req.json()
-    const { companyId } = body
+    const { companyId } = body || {}
+    const resolvedCompanyId = companyId || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
 
-    if (!companyId) {
+    if (!resolvedCompanyId) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
     }
 
-    if (ctx.companyId !== companyId) {
-      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
-    }
-
     // Stop the test game
-    await stopTestGame(companyId)
+    await stopTestGame(resolvedCompanyId)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

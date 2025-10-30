@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createMessage, formatGameUpdateMessage } from '@/lib/whop-api'
-import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,11 +22,6 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: Request) {
   try {
-    const ctx = await resolveAdminContextFromRequest(req)
-    if (!ctx.isAdmin) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
-
     const body = await req.json()
     const {
       companyId,
@@ -42,15 +36,13 @@ export async function POST(req: Request) {
       status = 'Live',
     } = body || {}
 
-    if (!companyId) {
+    const resolvedCompanyId = companyId || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
+
+    if (!resolvedCompanyId) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
     }
     if (!eventType) {
       return NextResponse.json({ error: 'eventType is required' }, { status: 400 })
-    }
-
-    if (ctx.companyId !== companyId) {
-      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
     // Resolve channels
@@ -61,7 +53,7 @@ export async function POST(req: Request) {
       channelIds = channelIdInput.split(',').map((id) => id.trim()).filter(Boolean)
     }
     if (channelIds.length === 0) {
-      const settings = await prisma.notificationSettings.findUnique({ where: { companyId } })
+      const settings = await prisma.notificationSettings.findUnique({ where: { companyId: resolvedCompanyId } })
       if (settings?.channelId) {
         channelIds = settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
       }

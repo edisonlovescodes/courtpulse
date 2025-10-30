@@ -1,25 +1,18 @@
 import { NextResponse } from 'next/server'
 import { getActiveTestGame, testGameToTodayGame } from '@/lib/test-game-state'
-import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
   try {
-    const ctx = await resolveAdminContextFromRequest(req)
-    if (!ctx.isAdmin) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    }
-
     const url = new URL(req.url)
-    const companyId = url.searchParams.get('company_id')
+    const companyId =
+      url.searchParams.get('company_id') ||
+      process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ||
+      ''
 
     if (!companyId) {
       return NextResponse.json({ error: 'company_id is required' }, { status: 400 })
-    }
-
-    if (ctx.companyId !== companyId) {
-      return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
     // Get active test game

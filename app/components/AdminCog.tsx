@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 type AdminCogProps = {
@@ -8,57 +7,13 @@ type AdminCogProps = {
 }
 
 export default function AdminCog({ initialCompanyId }: AdminCogProps) {
-  const [companyId, setCompanyId] = useState<string | null>(initialCompanyId ?? null)
-  const [checkedFallback, setCheckedFallback] = useState<boolean>(Boolean(initialCompanyId))
-  const [errorLogged, setErrorLogged] = useState(false)
-
-  // DEBUG: Log what AdminCog receives
-  useEffect(() => {
-    console.log('[AdminCog] Initial props:', { initialCompanyId })
-  }, [initialCompanyId])
-
-  useEffect(() => {
-    if (companyId || checkedFallback) return
-
-    let cancelled = false
-    async function fetchCompanyId() {
-      try {
-        console.log('[AdminCog] Fetching admin context via API fallback')
-        const res = await fetch('/api/admin/context', { cache: 'no-store' })
-        if (!res.ok) throw new Error(`Request failed (${res.status})`)
-        const data = (await res.json()) as { companyId?: string | null }
-        if (!cancelled && data?.companyId) {
-          console.log('[AdminCog] Fetched company id from API fallback:', data.companyId)
-          setCompanyId(data.companyId)
-        } else if (!cancelled) {
-          console.log('[AdminCog] API fallback returned no company id')
-          setCheckedFallback(true)
-        }
-      } catch (err) {
-        if (!cancelled && !errorLogged) {
-          console.error('[AdminCog] Fallback fetch failed:', err)
-          setErrorLogged(true)
-          setCheckedFallback(true)
-        }
-      }
-    }
-
-    fetchCompanyId()
-    return () => {
-      cancelled = true
-    }
-  }, [companyId, checkedFallback, errorLogged])
-
-  if (!companyId) {
-    console.log('[AdminCog] No companyId - hiding cog')
-    return null
-  }
-
-  console.log('[AdminCog] Showing cog for company:', companyId)
+  const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
+  const companyId = initialCompanyId ?? fallbackCompanyId
+  const href = companyId ? `/dashboard/${companyId}` : '/dashboard'
 
   return (
     <Link
-      href={`/dashboard/${companyId}`}
+      href={href}
       aria-label="Settings"
       className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white/80 p-2 text-gray-700 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
     >
