@@ -7,7 +7,13 @@ export const dynamic = 'force-dynamic'
 export default async function ExperiencePage(props: { params: Promise<{ experienceId: string }> }) {
   const params = await props.params
   const hdrs = await headers()
-  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any, params.experienceId)
+  const ctx = await resolveAdminContext({
+    headers: hdrs,
+    url: `/experiences/${params.experienceId}?experience_id=${params.experienceId}` ,
+    fallbackExperienceId: params.experienceId,
+  })
+  const companyId = ctx.companyId
+  const isAdmin = ctx.isAdmin
 
   return (
     <main className="space-y-8">

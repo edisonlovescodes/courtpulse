@@ -93,7 +93,25 @@ export async function getAuthFromHeaders(headers: Headers): Promise<AuthContext>
 }
 
 // Determine if the current user is an admin/owner of the Whop app/company
-type HeadersLike = { get(name: string): string | null }
+export type HeadersLike = { get(name: string): string | null }
+
+export type AccessLevel = 'admin' | 'member' | 'no_access'
+
+export type AdminContextSource = 'headers' | 'query' | 'referer' | 'experience_map' | 'none'
+
+export type AdminContext = {
+  companyId: string | null
+  experienceId: string | null
+  userId: string | null
+  accessLevel: AccessLevel
+  isAdmin: boolean
+  source: AdminContextSource
+  debug: {
+    headers: Record<string, string | null>
+    referer: string | null
+    url: string
+  }
+}
 
 export function isAdminFromHeaders(headers: HeadersLike): boolean {
   // Dev-only override for local testing
@@ -143,32 +161,10 @@ export function getCompanyIdFromHeaders(headers: HeadersLike): string | null {
     headers.get('X-Company-Id') ||
     ''
   if (fromHeader) return fromHeader
-  return process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
+  return null
 }
 
 // API-backed admin check using Whop SDK for a specific company
-export async function isAdminForCompany(headersLike: HeadersLike, companyId: string): Promise<boolean> {
-  // Dev-only override for local testing
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
-  ) {
-    return true
-  }
-  try {
-    // Verify the current user from the iframe headers
-    const { userId } = await whopSdk.verifyUserToken(headersLike as any)
-    if (!userId) return false
-    const { accessLevel } = await whopSdk.access.checkIfUserHasAccessToCompany({
-      companyId,
-      userId,
-    })
-    return accessLevel === 'admin'
-  } catch {
-    return false
-  }
-}
-
 export function getExperienceIdFromHeaders(headers: HeadersLike): string | null {
   return (
     headers.get('X-Whop-Experience-Id') ||
@@ -179,8 +175,30 @@ export function getExperienceIdFromHeaders(headers: HeadersLike): string | null 
 }
 
 export async function getCompanyIdForExperience(experienceId: string): Promise<string | null> {
+  if (!experienceId) return null
+  // Prefer SDK if available
+  try {
+    const experiencesResource: any = (whopSdk as any)?.experiences
+    if (experiencesResource) {
+      if (typeof experiencesResource.retrieve === 'function') {
+        const result = await experiencesResource.retrieve({ id: experienceId })
+        const companyId =
+          result?.company_id || result?.companyId || (result?.company && result.company.id)
+        if (companyId) return companyId
+      }
+      if (typeof experiencesResource.get === 'function') {
+        const result = await experiencesResource.get({ id: experienceId })
+        const companyId =
+          result?.company_id || result?.companyId || (result?.company && result.company.id)
+        if (companyId) return companyId
+      }
+    }
+  } catch {
+    // fall through to REST fetch fallback
+  }
+
   const apiKey = process.env.WHOP_API_KEY
-  if (!apiKey || !experienceId) return null
+  if (!apiKey) return null
   try {
     const res = await fetch(
       `https://api.whop.com/api/v1/experiences/${encodeURIComponent(experienceId)}`,
@@ -197,83 +215,237 @@ export async function getCompanyIdForExperience(experienceId: string): Promise<s
   }
 }
 
-export async function isAdminForExperience(headersLike: HeadersLike, experienceId: string): Promise<boolean> {
-  if (!experienceId) return false
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
-  ) {
-    return true
-  }
+const ADMIN_ROLE_VALUES = new Set(['admin', 'owner'])
+const MEMBER_ROLE_VALUES = new Set(['member', 'customer', 'sales_manager', 'moderator'])
+
+function normalizeAccessLevel(value: any): AccessLevel {
+  const normalized = String(value ?? '').toLowerCase()
+  if (ADMIN_ROLE_VALUES.has(normalized)) return 'admin'
+  if (MEMBER_ROLE_VALUES.has(normalized)) return 'member'
+  return 'no_access'
+}
+
+function buildUrl(input?: string): URL {
+  const fallback = 'http://placeholder.local/'
+  if (!input) return new URL(fallback)
   try {
-    const { userId } = await whopSdk.verifyUserToken(headersLike as any)
-    if (!userId) return false
-    const { accessLevel } = await whopSdk.access.checkIfUserHasAccessToExperience({
-      experienceId,
-      userId,
-    })
-    return accessLevel === 'admin'
+    if (/^https?:\/\//i.test(input)) {
+      return new URL(input)
+    }
+    return new URL(input, fallback)
   } catch {
-    return false
+    return new URL(fallback)
   }
 }
 
-export async function resolveAdminContext(
-  headersLike: HeadersLike,
-  fallbackExperienceId?: string,
-): Promise<{
-  companyId: string | null
-  experienceId: string | null
-  isCompanyAdmin: boolean
-  isExperienceAdmin: boolean
-  isAdmin: boolean
-}> {
-  const headerCompanyId = getCompanyIdFromHeaders(headersLike)
-  const headerExperienceId = getExperienceIdFromHeaders(headersLike)
-  const referer = (headersLike.get('referer') || headersLike.get('Referrer') || '') as string
+function extractIdsFromReferer(referer: string | null): { companyId: string | null; experienceId: string | null } {
+  if (!referer) return { companyId: null, experienceId: null }
+  try {
+    const refUrl = new URL(referer)
+    const companyId =
+      refUrl.searchParams.get('company_id') ||
+      (refUrl.pathname.match(/\/(?:companies|company)\/(biz_[A-Za-z0-9]+)/i)?.[1] ?? null)
+    const experienceId =
+      refUrl.searchParams.get('experience_id') ||
+      (refUrl.pathname.match(/\/(?:experiences|experience)\/(xp_[A-Za-z0-9]+)/i)?.[1] ?? null)
+    return { companyId, experienceId }
+  } catch {
+    return { companyId: null, experienceId: null }
+  }
+}
 
-  // Attempt to extract company/experience from Referer when headers are missing.
-  let refererCompanyId: string | null = null
-  let refererExperienceId: string | null = null
-  if (referer) {
+type ResolveAdminOptions = {
+  headers: HeadersLike
+  url?: string
+  fallbackExperienceId?: string
+}
+
+export async function resolveAdminContext(options: ResolveAdminOptions): Promise<AdminContext> {
+  const { headers: headersLike } = options
+  const requestUrl = buildUrl(options.url)
+
+  const debugHeaders: Record<string, string | null> = {
+    'X-Whop-Company-Id': getCompanyIdFromHeaders(headersLike),
+    'X-Whop-Experience-Id': getExperienceIdFromHeaders(headersLike),
+    'X-Whop-User-Id': headersLike.get('X-Whop-User-Id') || headersLike.get('Whop-User-Id'),
+    'Whop-Signed-Token': headersLike.get('Whop-Signed-Token') || headersLike.get('X-Whop-Signed-Token'),
+  }
+
+  const referer = headersLike.get('referer') || headersLike.get('Referrer') || null
+
+  const fromHeaders = {
+    companyId: debugHeaders['X-Whop-Company-Id'],
+    experienceId: debugHeaders['X-Whop-Experience-Id'],
+  }
+  const fromQuery = {
+    companyId: requestUrl.searchParams.get('company_id'),
+    experienceId: requestUrl.searchParams.get('experience_id'),
+  }
+  const fromReferer = extractIdsFromReferer(referer)
+
+  let source: AdminContextSource = 'none'
+
+  let companyId =
+    fromHeaders.companyId || fromQuery.companyId || fromReferer.companyId || null
+  let experienceId =
+    fromHeaders.experienceId ||
+    fromQuery.experienceId ||
+    fromReferer.experienceId ||
+    options.fallbackExperienceId ||
+    null
+
+  if (fromHeaders.companyId || fromHeaders.experienceId) {
+    source = 'headers'
+  } else if (fromQuery.companyId || fromQuery.experienceId) {
+    source = 'query'
+  } else if (fromReferer.companyId || fromReferer.experienceId) {
+    source = 'referer'
+  }
+
+  if (!companyId && experienceId) {
+    const mappedCompanyId = await getCompanyIdForExperience(experienceId)
+    if (mappedCompanyId) {
+      companyId = mappedCompanyId
+      if (source === 'none') source = 'experience_map'
+    }
+  }
+
+  let userId = debugHeaders['X-Whop-User-Id']
+  const signedToken = debugHeaders['Whop-Signed-Token']
+  if (!userId && signedToken) {
+    const secret = process.env.WHOP_APP_SECRET
+    if (secret) {
+      try {
+        const decoded = verifySignedToken(signedToken, secret)
+        if (decoded.valid && decoded.userId) {
+          userId = decoded.userId
+        }
+      } catch {}
+    }
+  }
+
+  if (!userId) {
     try {
-      const u = new URL(referer)
-      // Query params first
-      refererCompanyId = u.searchParams.get('company_id') || null
-      refererExperienceId = u.searchParams.get('experience_id') || null
-      // Path heuristics (best-effort; supports several common patterns)
-      const path = u.pathname
-      // e.g. /companies/biz_xxx or /company/biz_xxx
-      let m = path.match(/\/(?:companies|company)\/(biz_[A-Za-z0-9]+)/i)
-      if (!refererCompanyId && m) refererCompanyId = m[1]
-      // e.g. /experiences/xp_xxx or /experience/xp_xxx
-      m = path.match(/\/(?:experiences|experience)\/(xp_[A-Za-z0-9]+)/i)
-      if (!refererExperienceId && m) refererExperienceId = m[1]
+      const verified: any = await (whopSdk as any)?.verifyUserToken?.(headersLike as any, {
+        dontThrow: true,
+      })
+      if (verified && typeof verified === 'object' && 'userId' in verified) {
+        userId = verified.userId as string
+      }
     } catch {}
   }
 
-  const experienceId = headerExperienceId || refererExperienceId || fallbackExperienceId || null
-
-  let companyId = headerCompanyId || refererCompanyId
-  if (!companyId && experienceId) {
-    companyId = await getCompanyIdForExperience(experienceId)
+  if (
+    !userId &&
+    process.env.NODE_ENV !== 'production' &&
+    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
+  ) {
+    userId = process.env.WHOP_DEBUG_USER_ID || 'debug-user'
   }
 
-  let isCompanyAdmin = false
-  if (companyId) {
-    isCompanyAdmin = await isAdminForCompany(headersLike, companyId)
+  let accessLevel: AccessLevel = 'no_access'
+  let isAdmin = false
+
+  if (companyId && userId) {
+    try {
+      const result: any = await (whopSdk as any)?.access?.checkIfUserHasAccessToCompany?.({
+        companyId,
+        userId,
+      })
+      if (result) {
+        const level = normalizeAccessLevel(result.accessLevel ?? result.access_level)
+        accessLevel = level
+        isAdmin = level === 'admin'
+      }
+    } catch {}
   }
 
-  let isExperienceAdmin = false
-  if (!isCompanyAdmin && experienceId) {
-    isExperienceAdmin = await isAdminForExperience(headersLike, experienceId)
+  if (!isAdmin && experienceId && userId) {
+    try {
+      const result: any = await (whopSdk as any)?.access?.checkIfUserHasAccessToExperience?.({
+        experienceId,
+        userId,
+      })
+      if (result) {
+        const level = normalizeAccessLevel(result.accessLevel ?? result.access_level)
+        if (level === 'admin') {
+          accessLevel = 'admin'
+          isAdmin = true
+          if (!companyId) {
+            const mappedCompanyId = await getCompanyIdForExperience(experienceId)
+            if (mappedCompanyId) {
+              companyId = mappedCompanyId
+              if (source === 'none') source = 'experience_map'
+            }
+          }
+        } else if (level === 'member' && accessLevel === 'no_access') {
+          accessLevel = 'member'
+        }
+      }
+    } catch {}
+  }
+
+  if (!companyId) {
+    isAdmin = false
+    if (accessLevel === 'admin') accessLevel = 'no_access'
   }
 
   return {
     companyId,
     experienceId,
-    isCompanyAdmin,
-    isExperienceAdmin,
-    isAdmin: isCompanyAdmin || isExperienceAdmin,
+    userId: userId || null,
+    accessLevel,
+    isAdmin,
+    source,
+    debug: {
+      headers: debugHeaders,
+      referer,
+      url: options.url ?? requestUrl.toString(),
+    },
   }
+}
+
+export async function resolveAdminContextFromRequest(
+  req: Request,
+  options?: { fallbackExperienceId?: string },
+): Promise<AdminContext> {
+  return resolveAdminContext({
+    headers: req.headers,
+    url: req.url,
+    fallbackExperienceId: options?.fallbackExperienceId,
+  })
+}
+
+export async function isAdminForCompany(headersLike: HeadersLike, companyId: string): Promise<boolean> {
+  const ctx = await resolveAdminContext({ headers: headersLike })
+  if (ctx.companyId === companyId) {
+    return ctx.isAdmin
+  }
+  if (ctx.userId) {
+    try {
+      const result: any = await (whopSdk as any)?.access?.checkIfUserHasAccessToCompany?.({
+        companyId,
+        userId: ctx.userId,
+      })
+      return normalizeAccessLevel(result?.accessLevel ?? result?.access_level) === 'admin'
+    } catch {}
+  }
+  return false
+}
+
+export async function isAdminForExperience(headersLike: HeadersLike, experienceId: string): Promise<boolean> {
+  const ctx = await resolveAdminContext({ headers: headersLike, fallbackExperienceId: experienceId })
+  if (ctx.experienceId === experienceId) {
+    return ctx.isAdmin
+  }
+  if (ctx.userId) {
+    try {
+      const result: any = await (whopSdk as any)?.access?.checkIfUserHasAccessToExperience?.({
+        experienceId,
+        userId: ctx.userId,
+      })
+      return normalizeAccessLevel(result?.accessLevel ?? result?.access_level) === 'admin'
+    } catch {}
+  }
+  return false
 }

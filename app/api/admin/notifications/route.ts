@@ -1,14 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import {
-  getCompanyIdFromHeaders,
-  getCompanyIdForExperience,
-  getExperienceIdFromHeaders,
-  isAdminForCompany,
-  isAdminForExperience,
-} from '@/lib/whop'
-import { cookies } from 'next/headers'
-import { verifyAdminSessionToken } from '@/lib/signing'
+import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,8 +10,11 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: Request) {
   try {
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
-    const experienceId = getExperienceIdFromHeaders(req.headers)
+    const ctx = await resolveAdminContextFromRequest(req)
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
+
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
 
@@ -30,26 +25,8 @@ export async function GET(req: Request) {
       )
     }
 
-    // Enforce company boundary if header provides one and verify admin
-    if (headerCompanyId && headerCompanyId !== companyId) {
+    if (ctx.companyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
-    }
-    let allow = await isAdminForCompany(req.headers as any, companyId)
-    if (!allow && experienceId) {
-      const experienceCompanyId = await getCompanyIdForExperience(experienceId)
-      if (experienceCompanyId && experienceCompanyId === companyId) {
-        allow = await isAdminForExperience(req.headers as any, experienceId)
-      }
-    }
-    if (!allow) {
-      const store = await cookies()
-      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
-      const secret = process.env.WHOP_APP_SECRET
-      const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
-      if (!(v.valid && v.companyId === companyId)) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-      }
-      allow = true
     }
 
     let settings = await prisma.notificationSettings.findUnique({
@@ -97,8 +74,11 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
-    const experienceId = getExperienceIdFromHeaders(req.headers)
+    const ctx = await resolveAdminContextFromRequest(req)
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
     const {
       companyId,
@@ -120,26 +100,8 @@ export async function POST(req: Request) {
       )
     }
 
-    // Enforce company boundary if header provides one and verify admin
-    if (headerCompanyId && headerCompanyId !== companyId) {
+    if (ctx.companyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
-    }
-    let allow = await isAdminForCompany(req.headers as any, companyId)
-    if (!allow && experienceId) {
-      const experienceCompanyId = await getCompanyIdForExperience(experienceId)
-      if (experienceCompanyId && experienceCompanyId === companyId) {
-        allow = await isAdminForExperience(req.headers as any, experienceId)
-      }
-    }
-    if (!allow) {
-      const store = await cookies()
-      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
-      const secret = process.env.WHOP_APP_SECRET
-      const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
-      if (!(v.valid && v.companyId === companyId)) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-      }
-      allow = true
     }
 
     const channelIds = Array.isArray(inputChannelIds)

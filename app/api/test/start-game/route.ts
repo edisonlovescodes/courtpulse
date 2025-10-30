@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { startTestGame } from '@/lib/test-game-state'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
-import { cookies } from 'next/headers'
-import { verifyAdminSessionToken } from '@/lib/signing'
+import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    const ctx = await resolveAdminContextFromRequest(req)
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
     const { companyId, gameKey } = body
 
@@ -16,20 +18,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
     }
 
-    // Verify admin access
-    if (headerCompanyId && headerCompanyId !== companyId) {
+    if (ctx.companyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
-    }
-    let allow = await isAdminForCompany(req.headers as any, companyId)
-    if (!allow) {
-      const store = await cookies()
-      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
-      const secret = process.env.WHOP_APP_SECRET
-      const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
-      if (!(v.valid && v.companyId === companyId)) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-      }
-      allow = true
     }
 
     // Default to lakers-celtics if not specified

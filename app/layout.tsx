@@ -11,7 +11,8 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
-  const { isAdmin } = await resolveAdminContext(hdrs as any)
+  const ctx = await resolveAdminContext({ headers: hdrs, url: '/' })
+  const isAdmin = ctx.isAdmin
   return (
     <html lang="en">
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">

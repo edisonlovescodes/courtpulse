@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const hdrs = await headers()
-  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any)
+  const ctx = await resolveAdminContext({ headers: hdrs, url: '/' })
+  const companyId = ctx.companyId
+  const isAdmin = ctx.isAdmin
 
   return (
     <main className="space-y-8">

@@ -4,7 +4,8 @@ import { resolveAdminContext } from '@/lib/whop'
 
 export default async function DashboardIndex() {
   const hdrs = await headers()
-  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any)
+  const ctx = await resolveAdminContext({ headers: hdrs, url: '/dashboard' })
+  const { companyId, isAdmin } = ctx
   if (!companyId || !isAdmin) {
     redirect('/')
   }

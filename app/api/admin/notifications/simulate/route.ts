@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
-import { verifyAdminSessionToken } from '@/lib/signing'
 import { createMessage, formatGameUpdateMessage } from '@/lib/whop-api'
+import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +23,11 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: Request) {
   try {
+    const ctx = await resolveAdminContextFromRequest(req)
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    }
+
     const body = await req.json()
     const {
       companyId,
@@ -46,23 +49,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'eventType is required' }, { status: 400 })
     }
 
-    // Enforce company boundary if header provides one
-    const headerCompanyId = getCompanyIdFromHeaders(req.headers)
-    if (headerCompanyId && headerCompanyId !== companyId) {
+    if (ctx.companyId !== companyId) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
-    }
-
-    // Admin check via SDK, else accept short-lived admin token (header or cookie)
-    let allow = await isAdminForCompany(req.headers as any, companyId)
-    if (!allow) {
-      const store = await cookies()
-      const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
-      const secret = process.env.WHOP_APP_SECRET
-      const v = token && secret ? verifyAdminSessionToken(token, secret) : { valid: false }
-      if (!(v.valid && v.companyId === companyId)) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-      }
-      allow = true
     }
 
     // Resolve channels
