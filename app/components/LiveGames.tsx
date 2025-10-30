@@ -101,16 +101,33 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
+export default function LiveGames({ companyId: initialCompanyId, isAdmin }: LiveGamesProps = {}) {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Store companyId in state AND sessionStorage so it persists across navigations
+  const [companyId, setCompanyId] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      return initialCompanyId || sessionStorage.getItem('whop_company_id') || undefined
+    }
+    return initialCompanyId
+  })
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
   const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(companyId)) // Show admin UI if company exists
+  
+  // Save companyId to sessionStorage when it changes
+  useEffect(() => {
+    if (initialCompanyId) {
+      setCompanyId(initialCompanyId)
+      sessionStorage.setItem('whop_company_id', initialCompanyId)
+      setHasAdminAccess(true)
+    }
+  }, [initialCompanyId])
 
   const loadGames = useCallback(async () => {
     try {

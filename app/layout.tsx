@@ -22,8 +22,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   })
   
   // Always show admin UI if we have company context - API endpoints will enforce actual permissions
-  const companyId = ctx.companyId
-  const isAdmin = Boolean(companyId) // Show cog if company context exists
+  const companyId = ctx.companyId || 'default' // Assume company context in production
+  const isAdmin = true // Always show cog - dashboard will validate permissions
   
   return (
     <html lang="en">
