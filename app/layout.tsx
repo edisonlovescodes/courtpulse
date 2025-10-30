@@ -20,21 +20,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const url = companyId ? `/?company_id=${companyId}` : '/'
   const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
   const ctx = await resolveAdminContextFromRequest(mockRequest)
-  const isAdmin = ctx.isAdmin
+  
+  // Always show cog if we have company context - dashboard will handle permission check
+  // This matches how the checkboxes work (they show, then API enforces permissions)
+  const isAdmin = Boolean(companyId)
   
   // Debug logging
   console.log('[Layout] Admin Context:', {
     companyId,
     isAdmin,
+    apiDetectedAdmin: ctx.isAdmin,
     userId: ctx.userId,
     accessLevel: ctx.accessLevel,
     source: ctx.source,
-    allHeaders: {
-      'X-Whop-Company-Id': hdrs.get('X-Whop-Company-Id'),
-      'X-Company-Id': hdrs.get('X-Company-Id'),
-      'X-Whop-User-Id': hdrs.get('X-Whop-User-Id'),
-      'X-Whop-Role': hdrs.get('X-Whop-Role'),
-    }
   })
   return (
     <html lang="en">
