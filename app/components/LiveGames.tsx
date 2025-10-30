@@ -24,6 +24,7 @@ type Game = {
 type LiveGamesProps = {
   companyId?: string
   isAdmin?: boolean
+  experienceId?: string
 }
 
 type NotificationSettings = {
@@ -101,7 +102,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
+export default function LiveGames({ companyId, isAdmin, experienceId }: LiveGamesProps = {}) {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -316,7 +317,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
               return (
                 <Link
                   key={g.id}
-                  href={`/game/${g.id}`}
+                  href={experienceId ? `/experiences/${experienceId}/game/${g.id}` : `/game/${g.id}`}
                   className="group block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -420,7 +421,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
               return (
                 <Link
                   key={g.id}
-                  href={`/game/${g.id}`}
+                  href={experienceId ? `/experiences/${experienceId}/game/${g.id}` : `/game/${g.id}`}
                   className="group block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
                 >
                   {followControls && (

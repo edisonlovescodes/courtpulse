@@ -17,7 +17,7 @@ export default async function ExperiencePage(props: { params: Promise<{ experien
 
   return (
     <main className="space-y-8">
-      <LiveGames companyId={companyId ?? undefined} isAdmin={isAdmin} />
+      <LiveGames companyId={companyId ?? undefined} isAdmin={isAdmin} experienceId={params.experienceId} />
     </main>
   )
 }
