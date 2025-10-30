@@ -17,15 +17,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
   const ctx = await resolveAdminContextFromRequest(mockRequest)
 
-  // Pass companyId to client component - it will handle persistence via sessionStorage
-  const companyId = ctx.companyId
+  // Pass companyId to client component - fallback to env if not resolved
+  const companyId = ctx.companyId || (ctx.isAdmin ? process.env.NEXT_PUBLIC_WHOP_COMPANY_ID : null)
 
   // DEBUG: Log what we're passing to AdminCog
   console.log('[layout.tsx] AdminCog props:', {
     companyId,
     isAdmin: ctx.isAdmin,
     experienceId: ctx.experienceId,
-    source: ctx.source
+    source: ctx.source,
+    fallbackUsed: !ctx.companyId && !!companyId
   })
   
   return (
