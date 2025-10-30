@@ -2,7 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { resolveAdminContext } from '@/lib/whop'
+import { resolveAdminContextFromRequest } from '@/lib/whop'
 
 export const metadata = {
   title: 'CourtPulse - NBA Live Scores',
@@ -18,7 +18,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                    hdrs.get('X-Company-Id')
   
   const url = companyId ? `/?company_id=${companyId}` : '/'
-  const ctx = await resolveAdminContext({ headers: hdrs, url })
+  const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
+  const ctx = await resolveAdminContextFromRequest(mockRequest)
   const isAdmin = ctx.isAdmin
   return (
     <html lang="en">
