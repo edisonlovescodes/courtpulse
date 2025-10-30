@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import {
+  getCompanyIdFromHeaders,
+  getCompanyIdForExperience,
+  getExperienceIdFromHeaders,
+  isAdminForCompany,
+  isAdminForExperience,
+} from '@/lib/whop'
 import { cookies } from 'next/headers'
 import { verifyAdminSessionToken } from '@/lib/signing'
 
@@ -13,6 +19,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: Request) {
   try {
     const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    const experienceId = getExperienceIdFromHeaders(req.headers)
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
 
@@ -28,6 +35,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
     let allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow && experienceId) {
+      const experienceCompanyId = await getCompanyIdForExperience(experienceId)
+      if (experienceCompanyId && experienceCompanyId === companyId) {
+        allow = await isAdminForExperience(req.headers as any, experienceId)
+      }
+    }
     if (!allow) {
       const store = await cookies()
       const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value
@@ -85,6 +98,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const headerCompanyId = getCompanyIdFromHeaders(req.headers)
+    const experienceId = getExperienceIdFromHeaders(req.headers)
     const body = await req.json()
     const {
       companyId,
@@ -111,6 +125,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
     let allow = await isAdminForCompany(req.headers as any, companyId)
+    if (!allow && experienceId) {
+      const experienceCompanyId = await getCompanyIdForExperience(experienceId)
+      if (experienceCompanyId && experienceCompanyId === companyId) {
+        allow = await isAdminForExperience(req.headers as any, experienceId)
+      }
+    }
     if (!allow) {
       const store = await cookies()
       const token = req.headers.get('X-CP-Admin') || store.get('CP_ADMIN')?.value

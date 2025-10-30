@@ -168,3 +168,90 @@ export async function isAdminForCompany(headersLike: HeadersLike, companyId: str
     return false
   }
 }
+
+export function getExperienceIdFromHeaders(headers: HeadersLike): string | null {
+  return (
+    headers.get('X-Whop-Experience-Id') ||
+    headers.get('Whop-Experience-Id') ||
+    headers.get('Experience-Id') ||
+    null
+  )
+}
+
+export async function getCompanyIdForExperience(experienceId: string): Promise<string | null> {
+  const apiKey = process.env.WHOP_API_KEY
+  if (!apiKey || !experienceId) return null
+  try {
+    const res = await fetch(
+      `https://api.whop.com/api/v1/experiences/${encodeURIComponent(experienceId)}`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        cache: 'no-store',
+      },
+    )
+    if (!res.ok) return null
+    const data: any = await res.json()
+    return data?.company_id || data?.companyId || data?.company?.id || null
+  } catch {
+    return null
+  }
+}
+
+export async function isAdminForExperience(headersLike: HeadersLike, experienceId: string): Promise<boolean> {
+  if (!experienceId) return false
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    ['1', 'true', 'yes'].includes(String(process.env.WHOP_DEBUG_ADMIN || '').toLowerCase())
+  ) {
+    return true
+  }
+  try {
+    const { userId } = await whopSdk.verifyUserToken(headersLike as any)
+    if (!userId) return false
+    const { accessLevel } = await whopSdk.access.checkIfUserHasAccessToExperience({
+      experienceId,
+      userId,
+    })
+    return accessLevel === 'admin'
+  } catch {
+    return false
+  }
+}
+
+export async function resolveAdminContext(
+  headersLike: HeadersLike,
+  fallbackExperienceId?: string,
+): Promise<{
+  companyId: string | null
+  experienceId: string | null
+  isCompanyAdmin: boolean
+  isExperienceAdmin: boolean
+  isAdmin: boolean
+}> {
+  const headerCompanyId = getCompanyIdFromHeaders(headersLike)
+  const headerExperienceId = getExperienceIdFromHeaders(headersLike)
+  const experienceId = headerExperienceId || fallbackExperienceId || null
+
+  let companyId = headerCompanyId
+  if (!companyId && experienceId) {
+    companyId = await getCompanyIdForExperience(experienceId)
+  }
+
+  let isCompanyAdmin = false
+  if (companyId) {
+    isCompanyAdmin = await isAdminForCompany(headersLike, companyId)
+  }
+
+  let isExperienceAdmin = false
+  if (!isCompanyAdmin && experienceId) {
+    isExperienceAdmin = await isAdminForExperience(headersLike, experienceId)
+  }
+
+  return {
+    companyId,
+    experienceId,
+    isCompanyAdmin,
+    isExperienceAdmin,
+    isAdmin: isCompanyAdmin || isExperienceAdmin,
+  }
+}

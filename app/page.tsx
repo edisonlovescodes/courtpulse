@@ -1,13 +1,12 @@
 import LiveGames from './components/LiveGames'
 import { headers } from 'next/headers'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import { resolveAdminContext } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const hdrs = await headers()
-  const companyId = getCompanyIdFromHeaders(hdrs)
-  const isAdmin = companyId ? await isAdminForCompany(hdrs as any, companyId) : false
+  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any)
 
   return (
     <main className="space-y-8">

@@ -1,15 +1,13 @@
 import LiveGames from '../../components/LiveGames'
 import { headers } from 'next/headers'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import { resolveAdminContext } from '@/lib/whop'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ExperiencePage(props: { params: Promise<{ experienceId: string }> }) {
-  await props.params // ensure route segment resolves
-
+  const params = await props.params
   const hdrs = await headers()
-  const companyId = getCompanyIdFromHeaders(hdrs)
-  const isAdmin = companyId ? await isAdminForCompany(hdrs as any, companyId) : false
+  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any, params.experienceId)
 
   return (
     <main className="space-y-8">

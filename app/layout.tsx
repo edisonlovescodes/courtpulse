@@ -2,7 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import { resolveAdminContext } from '@/lib/whop'
 
 export const metadata = {
   title: 'CourtPulse - NBA Live Scores',
@@ -11,8 +11,7 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
-  const companyId = getCompanyIdFromHeaders(hdrs)
-  const isAdmin = companyId ? await isAdminForCompany(hdrs as any, companyId) : false
+  const { isAdmin } = await resolveAdminContext(hdrs as any)
   return (
     <html lang="en">
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">

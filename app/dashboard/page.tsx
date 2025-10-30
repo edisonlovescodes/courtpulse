@@ -1,14 +1,12 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getCompanyIdFromHeaders, isAdminForCompany } from '@/lib/whop'
+import { resolveAdminContext } from '@/lib/whop'
 
 export default async function DashboardIndex() {
   const hdrs = await headers()
-  const companyId = getCompanyIdFromHeaders(hdrs)
-  if (!companyId) {
+  const { companyId, isAdmin } = await resolveAdminContext(hdrs as any)
+  if (!companyId || !isAdmin) {
     redirect('/')
   }
-  const allow = await isAdminForCompany(hdrs as any, companyId)
-  if (!allow) redirect('/')
   redirect(`/dashboard/${companyId}`)
 }
