@@ -1,26 +1,14 @@
 "use client"
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 export default function AdminCog({ initialCompanyId }: { initialCompanyId?: string | null }) {
-  const [companyId, setCompanyId] = useState<string | null>(null)
-
-  useEffect(() => {
-    // Try to get companyId from sessionStorage or use initial
-    const storedId = sessionStorage.getItem('whop_company_id')
-    if (storedId) {
-      setCompanyId(storedId)
-    } else if (initialCompanyId) {
-      setCompanyId(initialCompanyId)
-      sessionStorage.setItem('whop_company_id', initialCompanyId)
-    }
-  }, [initialCompanyId])
-
-  if (!companyId) return null
+  // Simple rule: if server says you're an admin (by passing companyId), show the cog
+  // If not, don't show anything
+  if (!initialCompanyId) return null
 
   return (
     <Link
-      href={`/dashboard/${companyId}`}
+      href={`/dashboard/${initialCompanyId}`}
       aria-label="Settings"
       className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white/80 p-2 text-gray-700 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
     >

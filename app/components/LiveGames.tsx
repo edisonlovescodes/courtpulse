@@ -105,28 +105,15 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Store companyId in state AND sessionStorage so it persists across navigations
-  const [companyId, setCompanyId] = useState<string | undefined>(initialCompanyId)
-  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(initialCompanyId))
+
+  // Simple: server tells us if user is admin via initialCompanyId
+  const companyId = initialCompanyId
+  const hasAdminAccess = Boolean(initialCompanyId)
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
-  
-  // Load companyId from sessionStorage on mount, then save new values
-  useEffect(() => {
-    const stored = sessionStorage.getItem('whop_company_id')
-    if (stored && !companyId) {
-      setCompanyId(stored)
-      setHasAdminAccess(true)
-    } else if (initialCompanyId) {
-      setCompanyId(initialCompanyId)
-      sessionStorage.setItem('whop_company_id', initialCompanyId)
-      setHasAdminAccess(true)
-    }
-  }, [initialCompanyId, companyId])
 
   const loadGames = useCallback(async () => {
     try {
@@ -169,7 +156,6 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
       })
       if (!res.ok) {
         if (res.status === 403) {
-          setHasAdminAccess(false)
           setNotifSettings(null)
           return
         }
@@ -177,11 +163,9 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
       }
       const data = await res.json()
       setNotifSettings(normaliseSettings(data.settings))
-      setHasAdminAccess(true)
     } catch (e: any) {
       setNotifError(e.message || 'Failed to load notifications')
       setNotifSettings(null)
-      // Keep hasAdminAccess true if we have companyId - API will validate permissions
     } finally {
       setNotifLoading(false)
     }
@@ -191,10 +175,8 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
     if (!companyId) {
       setNotifSettings(null)
       setNotifError(null)
-      setHasAdminAccess(false)
       return
     }
-    setHasAdminAccess(true) // Show UI if company exists, API will validate
     loadNotifications()
   }, [companyId, loadNotifications])
 
