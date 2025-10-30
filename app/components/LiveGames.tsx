@@ -110,7 +110,7 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
-  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(isAdmin && companyId))
+  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(companyId)) // Show admin UI if company exists
 
   const loadGames = useCallback(async () => {
     try {
@@ -165,23 +165,22 @@ export default function LiveGames({ companyId, isAdmin }: LiveGamesProps = {}) {
     } catch (e: any) {
       setNotifError(e.message || 'Failed to load notifications')
       setNotifSettings(null)
-      if (!hasAdminAccess) {
-        setHasAdminAccess(Boolean(isAdmin))
-      }
+      // Keep hasAdminAccess true if we have companyId - API will validate permissions
     } finally {
       setNotifLoading(false)
     }
-  }, [companyId, hasAdminAccess, isAdmin])
+  }, [companyId])
 
   useEffect(() => {
     if (!companyId) {
       setNotifSettings(null)
       setNotifError(null)
-      setHasAdminAccess(Boolean(isAdmin && companyId))
+      setHasAdminAccess(false)
       return
     }
+    setHasAdminAccess(true) // Show UI if company exists, API will validate
     loadNotifications()
-  }, [companyId, isAdmin, loadNotifications])
+  }, [companyId, loadNotifications])
 
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {

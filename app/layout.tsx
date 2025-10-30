@@ -20,8 +20,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     url: '/',
     fallbackExperienceId: experienceId || undefined
   })
-  const isAdmin = ctx.isAdmin
+  
+  // Always show admin UI if we have company context - API endpoints will enforce actual permissions
   const companyId = ctx.companyId
+  const isAdmin = Boolean(companyId) // Show cog if company context exists
   
   return (
     <html lang="en">
