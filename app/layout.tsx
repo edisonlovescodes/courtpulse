@@ -10,6 +10,9 @@ export const metadata = {
   description: 'Real-time NBA scores for your community',
 }
 
+// Force dynamic rendering - don't cache this layout
+export const dynamic = 'force-dynamic'
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
 
