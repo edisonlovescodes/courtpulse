@@ -271,6 +271,8 @@ export async function resolveAdminContext(options: ResolveAdminOptions): Promise
     'Whop-Signed-Token': headersLike.get('Whop-Signed-Token') || headersLike.get('X-Whop-Signed-Token'),
   }
 
+  console.log('[resolveAdminContext] Starting with headers:', debugHeaders)
+
   const referer = headersLike.get('referer') || headersLike.get('Referrer') || null
 
   const fromHeaders = {
@@ -386,9 +388,19 @@ export async function resolveAdminContext(options: ResolveAdminOptions): Promise
   }
 
   if (!companyId) {
+    console.log('[resolveAdminContext] No companyId found - clearing admin status')
     isAdmin = false
     if (accessLevel === 'admin') accessLevel = 'no_access'
   }
+
+  console.log('[resolveAdminContext] Final result:', {
+    companyId,
+    experienceId,
+    userId,
+    accessLevel,
+    isAdmin,
+    source
+  })
 
   return {
     companyId,
