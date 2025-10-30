@@ -1,22 +1,64 @@
 "use client"
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-export default function AdminCog({ initialCompanyId }: { initialCompanyId?: string | null }) {
-  // DEBUG: Log what AdminCog receives
-  console.log('[AdminCog] Received props:', { initialCompanyId })
+type AdminCogProps = {
+  initialCompanyId?: string | null
+}
 
-  // Simple rule: if server says you're an admin (by passing companyId), show the cog
-  // If not, don't show anything
-  if (!initialCompanyId) {
+export default function AdminCog({ initialCompanyId }: AdminCogProps) {
+  const [companyId, setCompanyId] = useState<string | null>(initialCompanyId ?? null)
+  const [checkedFallback, setCheckedFallback] = useState<boolean>(Boolean(initialCompanyId))
+  const [errorLogged, setErrorLogged] = useState(false)
+
+  // DEBUG: Log what AdminCog receives
+  useEffect(() => {
+    console.log('[AdminCog] Initial props:', { initialCompanyId })
+  }, [initialCompanyId])
+
+  useEffect(() => {
+    if (companyId || checkedFallback) return
+
+    let cancelled = false
+    async function fetchCompanyId() {
+      try {
+        console.log('[AdminCog] Fetching admin context via API fallback')
+        const res = await fetch('/api/admin/context', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Request failed (${res.status})`)
+        const data = (await res.json()) as { companyId?: string | null }
+        if (!cancelled && data?.companyId) {
+          console.log('[AdminCog] Fetched company id from API fallback:', data.companyId)
+          setCompanyId(data.companyId)
+        } else if (!cancelled) {
+          console.log('[AdminCog] API fallback returned no company id')
+          setCheckedFallback(true)
+        }
+      } catch (err) {
+        if (!cancelled && !errorLogged) {
+          console.error('[AdminCog] Fallback fetch failed:', err)
+          setErrorLogged(true)
+          setCheckedFallback(true)
+        }
+      }
+    }
+
+    fetchCompanyId()
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, checkedFallback, errorLogged])
+
+  if (!companyId) {
     console.log('[AdminCog] No companyId - hiding cog')
     return null
   }
 
-  console.log('[AdminCog] Showing cog for company:', initialCompanyId)
+  console.log('[AdminCog] Showing cog for company:', companyId)
 
   return (
     <Link
-      href={`/dashboard/${initialCompanyId}`}
+      href={`/dashboard/${companyId}`}
       aria-label="Settings"
       className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white/80 p-2 text-gray-700 shadow-sm transition hover:border-brand-accent/60 hover:text-brand-accent"
     >
