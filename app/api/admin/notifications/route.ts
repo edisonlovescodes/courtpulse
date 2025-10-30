@@ -75,11 +75,13 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await resolveAdminContextFromRequest(req)
+    console.log('[/api/admin/notifications] resolved context:', ctx)
     if (!ctx.isAdmin) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
+    console.log('[/api/admin/notifications] request body:', body)
     const {
       companyId,
       enabled,
@@ -101,6 +103,7 @@ export async function POST(req: Request) {
     }
 
     if (ctx.companyId !== companyId) {
+      console.error('[/api/admin/notifications] companyId mismatch', { contextCompanyId: ctx.companyId, requestCompanyId: companyId })
       return NextResponse.json({ error: 'company mismatch' }, { status: 403 })
     }
 
