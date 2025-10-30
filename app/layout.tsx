@@ -16,14 +16,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // Extract experienceId from headers if available
   const experienceId = hdrs.get('X-Whop-Experience-Id') || hdrs.get('Whop-Experience-Id')
   
-  const ctx = await resolveAdminContext({ 
-    headers: hdrs, 
+  const ctx = await resolveAdminContext({
+    headers: hdrs,
     url: '/',
     fallbackExperienceId: experienceId || undefined
   })
-  
+
   // Pass companyId to client component - it will handle persistence via sessionStorage
   const companyId = ctx.companyId
+
+  // DEBUG: Log what we're passing to AdminCog
+  console.log('[layout.tsx] AdminCog props:', {
+    companyId,
+    isAdmin: ctx.isAdmin,
+    experienceId: ctx.experienceId,
+    source: ctx.source
+  })
   
   return (
     <html lang="en">

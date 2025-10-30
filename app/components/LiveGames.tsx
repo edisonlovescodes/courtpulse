@@ -110,6 +110,9 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const companyId = initialCompanyId
   const hasAdminAccess = Boolean(initialCompanyId)
 
+  // DEBUG: Log what LiveGames receives
+  console.log('[LiveGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })
+
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)

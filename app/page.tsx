@@ -12,6 +12,14 @@ export default async function HomePage() {
   // Show admin features when company context exists - same as layout
   const isAdmin = Boolean(companyId)
 
+  // DEBUG: Log what we're passing to LiveGames
+  console.log('[page.tsx] LiveGames props:', {
+    companyId,
+    isAdmin: ctx.isAdmin,
+    experienceId: ctx.experienceId,
+    source: ctx.source
+  })
+
   return (
     <main className="space-y-8">
       <LiveGames companyId={companyId ?? undefined} isAdmin={isAdmin} />

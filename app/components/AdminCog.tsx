@@ -2,9 +2,17 @@
 import Link from 'next/link'
 
 export default function AdminCog({ initialCompanyId }: { initialCompanyId?: string | null }) {
+  // DEBUG: Log what AdminCog receives
+  console.log('[AdminCog] Received props:', { initialCompanyId })
+
   // Simple rule: if server says you're an admin (by passing companyId), show the cog
   // If not, don't show anything
-  if (!initialCompanyId) return null
+  if (!initialCompanyId) {
+    console.log('[AdminCog] No companyId - hiding cog')
+    return null
+  }
+
+  console.log('[AdminCog] Showing cog for company:', initialCompanyId)
 
   return (
     <Link
