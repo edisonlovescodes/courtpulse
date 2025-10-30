@@ -15,21 +15,43 @@ export const dynamic = 'force-dynamic'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
+  const envFallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? null
 
-  // Use same approach as page.tsx - create Request object with full URL
-  const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
-  const ctx = await resolveAdminContextFromRequest(mockRequest)
+  // Middleware already mirrors company id into the headers – prefer that first
+  const headerCompanyId =
+    hdrs.get('x-company-id') ||
+    hdrs.get('x-whop-company-id') ||
+    hdrs.get('whop-company-id')
 
-  // Pass companyId to client component - fallback to env if not resolved
-  const companyId = ctx.companyId || (ctx.isAdmin ? process.env.NEXT_PUBLIC_WHOP_COMPANY_ID : null)
+  let companyId: string | null = headerCompanyId
+  let ctx: Awaited<ReturnType<typeof resolveAdminContextFromRequest>> | null = null
+
+  if (!companyId) {
+    // No direct header hit – rebuild the absolute URL so the resolver can look at query/referer
+    const proto = hdrs.get('x-forwarded-proto') || 'http'
+    const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || 'localhost:3000'
+    const path = hdrs.get('x-forwarded-path') || '/'
+    const absoluteUrl = `${proto}://${host}${path}`
+
+    const headersClone = new Headers()
+    hdrs.forEach((value, key) => {
+      headersClone.append(key, value)
+    })
+
+    const mockRequest = new Request(absoluteUrl, { headers: headersClone })
+    ctx = await resolveAdminContextFromRequest(mockRequest)
+    companyId = ctx.companyId || (ctx.isAdmin ? envFallbackCompanyId : null)
+  }
 
   // DEBUG: Log what we're passing to AdminCog
   console.log('[layout.tsx] AdminCog props:', {
     companyId,
-    isAdmin: ctx.isAdmin,
-    experienceId: ctx.experienceId,
-    source: ctx.source,
-    fallbackUsed: !ctx.companyId && !!companyId
+    headerCompanyId,
+    resolvedCompanyId: ctx?.companyId ?? null,
+    isAdmin: ctx?.isAdmin ?? null,
+    experienceId: ctx?.experienceId ?? null,
+    source: ctx?.source ?? (headerCompanyId ? 'header' : 'none'),
+    fallbackUsed: !ctx?.companyId && !!companyId
   })
   
   return (
