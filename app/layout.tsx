@@ -2,7 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { resolveAdminContext } from '@/lib/whop'
+import { resolveAdminContextFromRequest } from '@/lib/whop'
 import AdminCog from './components/AdminCog'
 
 export const metadata = {
@@ -12,15 +12,10 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const hdrs = await headers()
-  
-  // Extract experienceId from headers if available
-  const experienceId = hdrs.get('X-Whop-Experience-Id') || hdrs.get('Whop-Experience-Id')
-  
-  const ctx = await resolveAdminContext({
-    headers: hdrs,
-    url: '/',
-    fallbackExperienceId: experienceId || undefined
-  })
+
+  // Use same approach as page.tsx - create Request object with full URL
+  const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
+  const ctx = await resolveAdminContextFromRequest(mockRequest)
 
   // Pass companyId to client component - it will handle persistence via sessionStorage
   const companyId = ctx.companyId
