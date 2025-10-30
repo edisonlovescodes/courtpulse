@@ -107,27 +107,26 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const [error, setError] = useState<string | null>(null)
   
   // Store companyId in state AND sessionStorage so it persists across navigations
-  const [companyId, setCompanyId] = useState<string | undefined>(() => {
-    if (typeof window !== 'undefined') {
-      return initialCompanyId || sessionStorage.getItem('whop_company_id') || undefined
-    }
-    return initialCompanyId
-  })
+  const [companyId, setCompanyId] = useState<string | undefined>(initialCompanyId)
+  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(initialCompanyId))
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [trackingBusy, setTrackingBusy] = useState<Record<string, boolean>>({})
-  const [hasAdminAccess, setHasAdminAccess] = useState(Boolean(companyId)) // Show admin UI if company exists
   
-  // Save companyId to sessionStorage when it changes
+  // Load companyId from sessionStorage on mount, then save new values
   useEffect(() => {
-    if (initialCompanyId) {
+    const stored = sessionStorage.getItem('whop_company_id')
+    if (stored && !companyId) {
+      setCompanyId(stored)
+      setHasAdminAccess(true)
+    } else if (initialCompanyId) {
       setCompanyId(initialCompanyId)
       sessionStorage.setItem('whop_company_id', initialCompanyId)
       setHasAdminAccess(true)
     }
-  }, [initialCompanyId])
+  }, [initialCompanyId, companyId])
 
   const loadGames = useCallback(async () => {
     try {
@@ -201,7 +200,18 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
-    if (!companyId || !notifSettings) return
+    console.log('toggleTrackedGame called:', { companyId, hasNotifSettings: !!notifSettings, channelIds: notifSettings?.channelIds })
+    
+    if (!companyId) {
+      setNotifError('Company context missing. Please refresh the page.')
+      return
+    }
+    
+    if (!notifSettings) {
+      setNotifError('Notification settings not loaded. Please try again.')
+      return
+    }
+    
     if (!notifSettings.channelIds.length) {
       setNotifError('Select at least one chat channel in settings before following games.')
       return
@@ -233,10 +243,15 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
           trackedGames: nextTracked,
         }),
       })
-      if (!res.ok) throw new Error('Failed to update followed games')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to update followed games:', errorData)
+        throw new Error(errorData.error || 'Failed to update followed games')
+      }
       const updated = await res.json()
       setNotifSettings(normaliseSettings(updated.settings))
     } catch (e: any) {
+      console.error('toggleTrackedGame error:', e)
       setNotifError(e.message || 'Failed to update followed games')
       setNotifSettings((prev) => (prev ? { ...prev, trackedGames: previousTracked } : prev))
     } finally {
