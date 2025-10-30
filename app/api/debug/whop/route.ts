@@ -33,9 +33,11 @@ export async function GET(req: Request) {
   } catch {}
 
   return NextResponse.json({
+    url: req.url,
     isAdmin,
     companyId,
     headers: headersOut,
+    referer: h.get('referer'),
     sdkAdmin,
     accessLevel,
     note: 'Open this inside Whop as an owner/admin to verify headers and detection.'

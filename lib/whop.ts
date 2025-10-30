@@ -230,9 +230,31 @@ export async function resolveAdminContext(
 }> {
   const headerCompanyId = getCompanyIdFromHeaders(headersLike)
   const headerExperienceId = getExperienceIdFromHeaders(headersLike)
-  const experienceId = headerExperienceId || fallbackExperienceId || null
+  const referer = (headersLike.get('referer') || headersLike.get('Referrer') || '') as string
 
-  let companyId = headerCompanyId
+  // Attempt to extract company/experience from Referer when headers are missing.
+  let refererCompanyId: string | null = null
+  let refererExperienceId: string | null = null
+  if (referer) {
+    try {
+      const u = new URL(referer)
+      // Query params first
+      refererCompanyId = u.searchParams.get('company_id') || null
+      refererExperienceId = u.searchParams.get('experience_id') || null
+      // Path heuristics (best-effort; supports several common patterns)
+      const path = u.pathname
+      // e.g. /companies/biz_xxx or /company/biz_xxx
+      let m = path.match(/\/(?:companies|company)\/(biz_[A-Za-z0-9]+)/i)
+      if (!refererCompanyId && m) refererCompanyId = m[1]
+      // e.g. /experiences/xp_xxx or /experience/xp_xxx
+      m = path.match(/\/(?:experiences|experience)\/(xp_[A-Za-z0-9]+)/i)
+      if (!refererExperienceId && m) refererExperienceId = m[1]
+    } catch {}
+  }
+
+  const experienceId = headerExperienceId || refererExperienceId || fallbackExperienceId || null
+
+  let companyId = headerCompanyId || refererCompanyId
   if (!companyId && experienceId) {
     companyId = await getCompanyIdForExperience(experienceId)
   }
