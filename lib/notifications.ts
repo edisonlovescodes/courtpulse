@@ -161,6 +161,8 @@ async function processGameNotification(
     const message = formatGameUpdateMessage({
       homeTeam: `${game.homeTeam.teamCity} ${game.homeTeam.teamName}`,
       awayTeam: `${game.awayTeam.teamCity} ${game.awayTeam.teamName}`,
+      homeNickname: game.homeTeam.teamName,
+      awayNickname: game.awayTeam.teamName,
       homeScore,
       awayScore,
       period,

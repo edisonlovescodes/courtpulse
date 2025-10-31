@@ -100,6 +100,8 @@ export async function createMessage(
 export function formatGameUpdateMessage(data: {
   homeTeam: string
   awayTeam: string
+  homeNickname?: string
+  awayNickname?: string
   homeScore: number
   awayScore: number
   period: number
@@ -107,7 +109,7 @@ export function formatGameUpdateMessage(data: {
   status: string
   eventType?: 'score' | 'quarter_end' | 'game_start' | 'game_end'
 }): string {
-  const { homeTeam, awayTeam, homeScore, awayScore, period, gameClock, status, eventType } = data
+  const { homeTeam, awayTeam, homeNickname, awayNickname, homeScore, awayScore, period, gameClock, status, eventType } = data
 
   const readableClock = (() => {
     if (!gameClock) return ''
@@ -120,19 +122,20 @@ export function formatGameUpdateMessage(data: {
 
   const lines: string[] = [
     `${awayTeam} @ ${homeTeam}`,
-    `Score: (${awayTeam}) ${awayScore} - ${homeScore} (${homeTeam})`,
+    '',
+    `Score: ${awayNickname ?? awayTeam} ${awayScore} - ${homeScore} ${homeNickname ?? homeTeam}`,
   ]
 
   if (eventType === 'game_start') {
-    lines.push('🏀 Game Starting!')
+    lines.push('', '🏀 Game Starting!')
   } else if (eventType === 'game_end') {
-    lines.push('🏁 Final')
+    lines.push('', '🏁 Final')
   } else if (eventType === 'quarter_end') {
-    lines.push(`⏰ End of Q${period}`)
+    lines.push('', `⏰ End of Q${period}`)
   } else if (period > 0) {
-    lines.push(`📊 Q${period}${readableClock ? ` • ${readableClock}` : ''}`)
+    lines.push('', `📊 Q${period}${readableClock ? ` • ${readableClock}` : ''}`)
   } else {
-    lines.push(`📅 ${status}`)
+    lines.push('', `📅 ${status}`)
   }
 
   return lines.join('\n')
