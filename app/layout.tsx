@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { resolveAdminContextFromRequest } from '@/lib/whop'
 import AdminCog from './components/AdminCog'
+import BusinessCard from './components/BusinessCard'
 
 export const metadata = {
   title: 'CourtPulse - NBA Live Scores',
@@ -78,7 +79,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </nav>
           </header>
           <main>{children}</main>
-          <footer className="mt-16 pt-8 border-t border-black/5">
+          <footer className="mt-16 pt-8 border-t border-black/5 space-y-8">
+            <BusinessCard />
             <div className="flex items-center justify-between text-xs">
               <p className="opacity-50">© 2025 CourtPulse. All rights reserved.</p>
               <p className="opacity-40">Data: NBA.com • Live Updates</p>
