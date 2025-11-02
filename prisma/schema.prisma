@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -78,7 +78,7 @@ model GameNotificationState {
 model TestGameSession {
   id           Int      @id @default(autoincrement())
   gameId       String
-  snapshotData String   // JSON of historical game data
+  snapshotData String   @db.Text // JSON of historical game data
   startedAt    DateTime
   isActive     Boolean  @default(true)
   companyId    String
