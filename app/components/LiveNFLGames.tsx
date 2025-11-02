@@ -152,22 +152,45 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
     setNotifLoading(true)
     setNotifError(null)
     try {
-      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
+      // Load NBA settings for channel configuration
+      const nbaRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
         },
       })
-      if (!res.ok) {
-        if (res.status === 403) {
+      if (!nbaRes.ok) {
+        if (nbaRes.status === 403) {
           setNotifSettings(null)
           return
         }
-        throw new Error(`Failed (${res.status})`)
+        throw new Error(`Failed (${nbaRes.status})`)
       }
-      const data = await res.json()
-      setNotifSettings(normaliseSettings(data.settings))
+      const nbaData = await nbaRes.json()
+      const nbaSettings = normaliseSettings(nbaData.settings)
+
+      // Load NFL tracked games
+      const nflRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      })
+      const nflData = nflRes.ok ? await nflRes.json() : null
+      const nflTrackedGames = nflData?.settings?.trackedGames || []
+
+      // Combine: use NBA settings but with NFL tracked games
+      setNotifSettings({
+        ...nbaSettings,
+        sport: 'nfl',
+        trackedGames: Array.isArray(nflTrackedGames)
+          ? nflTrackedGames
+          : typeof nflTrackedGames === 'string'
+            ? nflTrackedGames.split(',').filter(Boolean)
+            : []
+      })
     } catch (e: any) {
       setNotifError(e.message || 'Failed to load notifications')
       setNotifSettings(null)
