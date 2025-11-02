@@ -3,9 +3,10 @@ import { getNFLGame } from '@/lib/nfl';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await props.params;
     const game = await getNFLGame(params.id);
 
     if (!game) {
@@ -16,8 +17,8 @@ export async function GET(
     }
 
     return NextResponse.json(game);
-  } catch (error) {
-    console.error(`Error in /api/nfl/${params.id}:`, error);
+  } catch (error: any) {
+    console.error(`Error in /api/nfl:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch NFL game details' },
       { status: 500 }
