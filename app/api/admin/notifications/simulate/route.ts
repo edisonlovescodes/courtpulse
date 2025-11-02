@@ -53,7 +53,14 @@ export async function POST(req: Request) {
       channelIds = channelIdInput.split(',').map((id) => id.trim()).filter(Boolean)
     }
     if (channelIds.length === 0) {
-      const settings = await prisma.notificationSettings.findUnique({ where: { companyId: resolvedCompanyId } })
+      const settings = await prisma.notificationSettings.findUnique({
+        where: {
+          companyId_sport: {
+            companyId: resolvedCompanyId,
+            sport: 'nba'
+          }
+        }
+      })
       if (settings?.channelId) {
         channelIds = settings.channelId.split(',').map((id) => id.trim()).filter(Boolean)
       }

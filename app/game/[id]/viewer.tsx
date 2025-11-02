@@ -132,7 +132,7 @@ function formatRecord(wins?: number, losses?: number): string {
   return `${wins}-${losses}`
 }
 
-export default function Client({ id }: { id: string }) {
+export default function Client({ id, sport = 'nba' }: { id: string; sport?: string }) {
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('boxscore')
@@ -143,7 +143,8 @@ export default function Client({ id }: { id: string }) {
     try {
       // Add timestamp to prevent caching
       const timestamp = Date.now()
-      const res = await fetch(`/api/games/${id}?t=${timestamp}`, {
+      const apiPath = sport === 'nfl' ? `/api/nfl/${id}` : `/api/games/${id}`
+      const res = await fetch(`${apiPath}?t=${timestamp}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -160,7 +161,7 @@ export default function Client({ id }: { id: string }) {
     } catch (e: any) {
       setError(e.message)
     }
-  }, [id])
+  }, [id, sport])
 
   // Load team stats for pre-game preview
   useEffect(() => {
@@ -195,6 +196,163 @@ export default function Client({ id }: { id: string }) {
     const t = setInterval(load, 10_000)
     return () => clearInterval(t)
   }, [load])
+
+  // NFL games - basic view for Phase 1
+  if (sport === 'nfl') {
+    if (error) {
+      return (
+        <main className="space-y-4">
+          <Link href="/" className="text-sm">← Back</Link>
+          <div className="card">
+            <div className="text-red-600 font-medium">{error}</div>
+          </div>
+        </main>
+      )
+    }
+
+    if (!data) {
+      return (
+        <main className="p-4">
+          <div className="rounded-2xl bg-white border border-black/10 p-8 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
+            <div className="h-24 bg-gray-200 rounded mb-4"></div>
+            <div className="h-12 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </main>
+      )
+    }
+
+    const nflData = data as any
+    const isLive = nflData.gameStatus === 2
+    const isFinal = nflData.gameStatus === 3
+    const getPeriodLabel = (period: number) => {
+      if (period === 0) return 'Pregame'
+      if (period <= 4) return `Q${period}`
+      return `OT${period - 4}`
+    }
+
+    return (
+      <main className="space-y-6">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium hover:text-brand-accent transition group">
+          <svg className="w-5 h-5 group-hover:-translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to All Games
+        </Link>
+
+        {/* Game Score Card */}
+        <div className={`rounded-3xl p-8 md:p-12 border-2 shadow-xl ${
+          isLive
+            ? 'bg-gradient-to-br from-red-50 via-white to-red-50 border-red-200'
+            : 'bg-gradient-to-br from-blue-50 via-white to-purple-50 border-blue-200'
+        }`}>
+          <div className="space-y-8">
+            {/* Status Badge */}
+            <div className="flex items-center justify-center gap-4">
+              {isLive && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-600">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  Live
+                </span>
+              )}
+              {isFinal && (
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Final
+                </span>
+              )}
+              {!isLive && !isFinal && (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                  {nflData.gameStatusText}
+                </span>
+              )}
+              {nflData.period > 0 && (
+                <span className="text-sm font-semibold text-gray-700">
+                  {getPeriodLabel(nflData.period)}
+                  {nflData.gameClock && nflData.gameClock !== '0:00' && (
+                    <span className="ml-2 font-mono text-gray-500">
+                      {nflData.gameClock}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+
+            {/* Down and Distance */}
+            {isLive && nflData.possessionText && (
+              <div className="text-center">
+                <span className="inline-block px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700">
+                  {nflData.possessionText}
+                </span>
+              </div>
+            )}
+
+            {/* Away Team */}
+            <div className="flex items-center justify-between p-6 bg-white/80 rounded-2xl border border-black/5">
+              <div className="flex items-center gap-4">
+                {nflData.awayTeam?.logoUrl && (
+                  <img
+                    src={nflData.awayTeam.logoUrl}
+                    alt={nflData.awayTeam.teamName}
+                    className="h-16 w-16 object-contain"
+                  />
+                )}
+                <div>
+                  <div className="text-2xl font-bold flex items-center gap-2">
+                    {nflData.awayTeam?.teamCity} {nflData.awayTeam?.teamName}
+                    {nflData.awayTeam?.possession && (
+                      <span className="inline-block h-3 w-3 rounded-full bg-green-500" title="Possession" />
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {nflData.awayTeam?.wins}-{nflData.awayTeam?.losses}
+                    {nflData.awayTeam?.ties > 0 && `-${nflData.awayTeam.ties}`}
+                  </div>
+                </div>
+              </div>
+              <div className="text-5xl font-black text-brand-accent">
+                {nflData.awayTeam?.score}
+              </div>
+            </div>
+
+            {/* Home Team */}
+            <div className="flex items-center justify-between p-6 bg-white/80 rounded-2xl border border-black/5">
+              <div className="flex items-center gap-4">
+                {nflData.homeTeam?.logoUrl && (
+                  <img
+                    src={nflData.homeTeam.logoUrl}
+                    alt={nflData.homeTeam.teamName}
+                    className="h-16 w-16 object-contain"
+                  />
+                )}
+                <div>
+                  <div className="text-2xl font-bold flex items-center gap-2">
+                    {nflData.homeTeam?.teamCity} {nflData.homeTeam?.teamName}
+                    {nflData.homeTeam?.possession && (
+                      <span className="inline-block h-3 w-3 rounded-full bg-green-500" title="Possession" />
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {nflData.homeTeam?.wins}-{nflData.homeTeam?.losses}
+                    {nflData.homeTeam?.ties > 0 && `-${nflData.homeTeam.ties}`}
+                  </div>
+                </div>
+              </div>
+              <div className="text-5xl font-black text-brand-accent">
+                {nflData.homeTeam?.score}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Coming Soon Message */}
+        <div className="rounded-xl border border-black/10 bg-white/80 p-6 text-center">
+          <p className="text-sm text-gray-600">
+            Detailed player stats and play-by-play coming soon
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   if (error) {
     return (

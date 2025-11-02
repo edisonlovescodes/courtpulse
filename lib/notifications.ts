@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { getGameById } from './ball'
+import { getNFLGame } from './nfl'
 import { createMessage, formatGameUpdateMessage } from './whop-api'
 
 type EventType = 'score' | 'quarter_end' | 'game_start' | 'game_end'
@@ -31,7 +32,7 @@ export async function processGameNotifications() {
       // Process each tracked game
       for (const gameId of trackedGames) {
         try {
-          await processGameNotification(settings, channelIds, gameId)
+          await processGameNotification(settings, channelIds, gameId, settings.sport)
         } catch (e) {
           console.error(`Error processing game ${gameId} for company ${settings.companyId}:`, e)
         }
@@ -52,23 +53,49 @@ async function processGameNotification(
     notifyGameStart: boolean
     notifyGameEnd: boolean
     notifyQuarterEnd: boolean
+    sport: string
   },
   channelIds: string[],
-  gameId: string
+  gameId: string,
+  sport: string = 'nba'
 ) {
   if (channelIds.length === 0) return
 
-  // Fetch current game data
-  const game = await getGameById(gameId)
+  // Fetch current game data based on sport
+  let game: any
+  if (sport === 'nfl') {
+    const nflGame = await getNFLGame(gameId)
+    if (!nflGame) return
+    game = {
+      gameStatus: nflGame.gameStatus,
+      gameStatusText: nflGame.gameStatusText,
+      period: nflGame.period,
+      gameClock: nflGame.gameClock,
+      homeTeam: {
+        teamCity: nflGame.homeTeam.teamCity,
+        teamName: nflGame.homeTeam.teamName,
+        score: nflGame.homeTeam.score,
+      },
+      awayTeam: {
+        teamCity: nflGame.awayTeam.teamCity,
+        teamName: nflGame.awayTeam.teamName,
+        score: nflGame.awayTeam.score,
+      },
+    }
+  } else {
+    game = await getGameById(gameId)
+  }
+
   const status = formatGameStatus(game.gameStatus, game.gameStatusText)
   const isLive = game.gameStatus === 2
 
   // Get or create notification state
   let state = await prisma.gameNotificationState.findUnique({
     where: {
-      companyId_gameId: {
+      companyId_gameId_sport: {
         companyId: settings.companyId,
         gameId,
+        sport,
       },
     },
   })
@@ -78,6 +105,7 @@ async function processGameNotification(
       data: {
         companyId: settings.companyId,
         gameId,
+        sport,
         lastHomeScore: 0,
         lastAwayScore: 0,
         lastPeriod: 0,
@@ -93,6 +121,7 @@ async function processGameNotification(
   // Determine if we should send a notification
   let shouldNotify = false
   let eventType: EventType | undefined
+  let throttledScoreUpdate = false
 
   // Game start notification
   if (settings.notifyGameStart && state.lastStatus !== 'Live' && isLive) {
@@ -122,14 +151,17 @@ async function processGameNotification(
       if (minutesSinceLastNotif >= 1) {
         shouldNotify = true
         eventType = 'score'
+      } else {
+        throttledScoreUpdate = true
       }
     }
   }
 
   const baseWhere = {
-    companyId_gameId: {
+    companyId_gameId_sport: {
       companyId: settings.companyId,
       gameId,
+      sport,
     },
   } as const
 
@@ -139,6 +171,7 @@ async function processGameNotification(
       where: {
         companyId: settings.companyId,
         gameId,
+        sport,
         lastHomeScore: state.lastHomeScore,
         lastAwayScore: state.lastAwayScore,
         lastPeriod: state.lastPeriod,
@@ -192,12 +225,13 @@ async function processGameNotification(
   }
 
   // No notification sent but state may have changed; keep it in sync
-  if (
+  const stateChanged =
     state.lastHomeScore !== homeScore ||
     state.lastAwayScore !== awayScore ||
     state.lastPeriod !== period ||
     state.lastStatus !== status
-  ) {
+
+  if (!throttledScoreUpdate && stateChanged) {
     await prisma.gameNotificationState.update({
       where: baseWhere,
       data: {

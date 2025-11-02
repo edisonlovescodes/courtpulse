@@ -2,26 +2,34 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 
-type Game = {
-  id: string
-  homeTeam: string
-  awayTeam: string
-  homeScore: number
-  awayScore: number
-  status: string
-  period: number
-  gameClock?: string
-  homeWins?: number
-  homeLosses?: number
-  awayWins?: number
-  awayLosses?: number
-  homeTeamId?: number
-  awayTeamId?: number
-  homeTricode?: string
-  awayTricode?: string
+type NFLTeam = {
+  teamId: number
+  teamName: string
+  teamCity: string
+  teamTricode: string
+  score: number
+  wins: number
+  losses: number
+  ties: number
+  timeouts: number
+  possession: boolean
+  logoUrl: string
 }
 
-type LiveGamesProps = {
+type NFLGame = {
+  gameId: string
+  gameStatus: number
+  gameStatusText: string
+  period: number
+  gameClock: string
+  possessionText?: string
+  homeTeam: NFLTeam
+  awayTeam: NFLTeam
+  gameTimeUTC: string
+  gameDate: string
+}
+
+type LiveNFLGamesProps = {
   companyId?: string
   isAdmin?: boolean
 }
@@ -29,6 +37,7 @@ type LiveGamesProps = {
 type NotificationSettings = {
   id?: number
   companyId?: string
+  sport?: string
   enabled: boolean
   channelId: string | null
   channelIds: string[]
@@ -40,28 +49,21 @@ type NotificationSettings = {
   trackedGames: string[]
 }
 
-function isLive(status: string) {
-  const s = status.toLowerCase()
-  return s.includes('live') || s.includes('in progress')
+function isLive(status: number) {
+  return status === 2 // 2 = in-progress
 }
 
-function getTeamLogoUrl(teamId?: number): string {
-  if (!teamId) return ''
-  return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
-}
-
-function formatRecord(wins?: number, losses?: number): string {
-  if (wins === undefined || losses === undefined) return ''
+function formatRecord(wins: number, losses: number, ties: number): string {
+  if (ties > 0) {
+    return `${wins}-${losses}-${ties}`
+  }
   return `${wins}-${losses}`
 }
 
-function formatGameClock(clock?: string): string {
-  if (!clock) return ''
-  const match = clock.match(/PT(\d+)M([\d.]+)S/i)
-  if (!match) return clock
-  const mins = match[1]
-  const secs = Math.floor(parseFloat(match[2]))
-  return `${mins}:${secs.toString().padStart(2, '0')}`
+function getPeriodLabel(period: number): string {
+  if (period === 0) return 'Pregame'
+  if (period <= 4) return `Q${period}`
+  return `OT${period - 4}`
 }
 
 const normaliseSettings = (raw: any): NotificationSettings => {
@@ -89,6 +91,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   return {
     id: raw?.id,
     companyId: raw?.companyId ?? undefined,
+    sport: raw?.sport ?? 'nfl',
     enabled: Boolean(raw?.enabled),
     channelId: channelIds[0] ?? null,
     channelIds,
@@ -101,18 +104,16 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveGames({ companyId: initialCompanyId, isAdmin }: LiveGamesProps = {}) {
-  const [games, setGames] = useState<Game[]>([])
+export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: LiveNFLGamesProps = {}) {
+  const [games, setGames] = useState<NFLGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Simple: server tells us if user is admin via initialCompanyId
   const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
   const companyId = initialCompanyId ?? fallbackCompanyId ?? undefined
   const hasAdminAccess = Boolean(companyId)
 
-  // DEBUG: Log what LiveGames receives
-  console.log('[LiveGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })
+  console.log('[LiveNFLGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
@@ -122,7 +123,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const loadGames = useCallback(async () => {
     try {
       const ts = Date.now()
-      const res = await fetch(`/api/games/today?t=${ts}`, {
+      const res = await fetch(`/api/nfl/today?t=${ts}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -130,11 +131,11 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
         },
       })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
-      const j = (await res.json()) as { games: Game[] }
-      setGames(j.games || [])
+      const data = (await res.json()) as NFLGame[]
+      setGames(data || [])
       setError(null)
     } catch (e: any) {
-      setError(e.message || 'Failed to load games')
+      setError(e.message || 'Failed to load NFL games')
     } finally {
       setLoading(false)
     }
@@ -142,7 +143,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
   useEffect(() => {
     loadGames()
-    const id = setInterval(loadGames, 10_000)
+    const id = setInterval(loadGames, 10_000) // Refresh every 10 seconds
     return () => clearInterval(id)
   }, [loadGames])
 
@@ -151,7 +152,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
     setNotifLoading(true)
     setNotifError(null)
     try {
-      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
+      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -184,20 +185,19 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
     loadNotifications()
   }, [companyId, loadNotifications])
 
-
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
     console.log('toggleTrackedGame called:', { companyId, hasNotifSettings: !!notifSettings, channelIds: notifSettings?.channelIds })
-    
+
     if (!companyId) {
       setNotifError('Company context missing. Please refresh the page.')
       return
     }
-    
+
     if (!notifSettings) {
       setNotifError('Notification settings not loaded. Please try again.')
       return
     }
-    
+
     if (!notifSettings.channelIds.length) {
       setNotifError('Select at least one chat channel in settings before following games.')
       return
@@ -218,7 +218,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          sport: 'nba',
+          sport: 'nfl',
           enabled: notifSettings.enabled,
           channelIds: notifSettings.channelIds,
           channelId: notifSettings.channelIds[0] ?? null,
@@ -250,8 +250,8 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
     }
   }, [companyId, notifSettings])
 
-  const liveGames = useMemo(() => games.filter((g) => isLive(g.status)), [games])
-  const otherGames = useMemo(() => games.filter((g) => !isLive(g.status)), [games])
+  const liveGames = useMemo(() => games.filter((g) => isLive(g.gameStatus)), [games])
+  const otherGames = useMemo(() => games.filter((g) => !isLive(g.gameStatus)), [games])
 
   const hasAccess = true
   const followConfigMissing = Boolean(hasAdminAccess && notifSettings && !notifSettings.channelIds.length)
@@ -330,11 +330,11 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
           <div className="grid gap-4">
             {liveGames.map((g) => {
-              const followControls = renderFollowControls(g.id)
+              const followControls = renderFollowControls(g.gameId)
               return (
                 <Link
-                  key={g.id}
-                  href={`/game/${g.id}`}
+                  key={g.gameId}
+                  href={`/game/${g.gameId}?sport=nfl`}
                   className="group block rounded-2xl border-2 border-red-200 bg-gradient-to-br from-white to-red-50/60 p-6 transition-all hover:-translate-y-0.5 hover:border-red-400 hover:shadow-xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -345,10 +345,10 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                       </span>
                       {g.period > 0 && (
                         <span className="text-xs font-semibold text-gray-600">
-                          Q{g.period}
+                          {getPeriodLabel(g.period)}
                           {g.gameClock && (
                             <span className="ml-1 font-mono text-gray-500">
-                              {formatGameClock(g.gameClock)}
+                              {g.gameClock}
                             </span>
                           )}
                         </span>
@@ -360,56 +360,62 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                   <div className="mt-4 grid grid-cols-[1fr,auto,1fr] items-center gap-6">
                     <div className="flex flex-col items-end gap-3 text-right">
                       <div className="flex items-center gap-3">
-                        {g.awayTeamId && (
+                        {g.awayTeam.logoUrl && (
                           <img
-                            src={getTeamLogoUrl(g.awayTeamId)}
-                          alt={g.awayTeam}
-                          className="h-12 w-12 object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none'
-                          }}
-                        />
-                      )}
-                      <div>
-                        <div className="text-lg font-bold">{g.awayTeam}</div>
-                        {formatRecord(g.awayWins, g.awayLosses) && (
-                          <div className="text-sm text-gray-600">
-                            {formatRecord(g.awayWins, g.awayLosses)}
-                          </div>
+                            src={g.awayTeam.logoUrl}
+                            alt={g.awayTeam.teamName}
+                            className="h-12 w-12 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
                         )}
+                        <div>
+                          <div className="text-lg font-bold flex items-center gap-1.5">
+                            {g.awayTeam.teamCity} {g.awayTeam.teamName}
+                            {g.awayTeam.possession && (
+                              <span className="inline-block h-2 w-2 rounded-full bg-green-500" title="Possession" />
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {formatRecord(g.awayTeam.wins, g.awayTeam.losses, g.awayTeam.ties)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-4xl font-black text-brand-accent">
+                        {hasAccess ? g.awayTeam.score : '--'}
                       </div>
                     </div>
-                    <div className="text-4xl font-black text-brand-accent">
-                      {hasAccess ? g.awayScore : '--'}
-                    </div>
-                  </div>
 
-                  <div className="text-2xl font-bold text-gray-300">VS</div>
+                    <div className="text-2xl font-bold text-gray-300">VS</div>
 
-                  <div className="flex flex-col items-start gap-3 text-left">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <div className="text-lg font-bold">{g.homeTeam}</div>
-                        {formatRecord(g.homeWins, g.homeLosses) && (
-                          <div className="text-sm text-gray-600">
-                            {formatRecord(g.homeWins, g.homeLosses)}
+                    <div className="flex flex-col items-start gap-3 text-left">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="text-lg font-bold flex items-center gap-1.5">
+                            {g.homeTeam.teamCity} {g.homeTeam.teamName}
+                            {g.homeTeam.possession && (
+                              <span className="inline-block h-2 w-2 rounded-full bg-green-500" title="Possession" />
+                            )}
                           </div>
+                          <div className="text-sm text-gray-600">
+                            {formatRecord(g.homeTeam.wins, g.homeTeam.losses, g.homeTeam.ties)}
+                          </div>
+                        </div>
+                        {g.homeTeam.logoUrl && (
+                          <img
+                            src={g.homeTeam.logoUrl}
+                            alt={g.homeTeam.teamName}
+                            className="h-12 w-12 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
                         )}
                       </div>
-                      {g.homeTeamId && (
-                        <img
-                          src={getTeamLogoUrl(g.homeTeamId)}
-                          alt={g.homeTeam}
-                          className="h-12 w-12 object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none'
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="text-4xl font-black text-brand-accent">
-                      {hasAccess ? g.homeScore : '--'}
-                    </div>
+                      <div className="text-4xl font-black text-brand-accent">
+                        {hasAccess ? g.homeTeam.score : '--'}
+                      </div>
                     </div>
                   </div>
 
@@ -433,12 +439,12 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
           <div className="grid gap-4 md:grid-cols-2">
             {otherGames.map((g) => {
-              const isFinal = g.status.toLowerCase().includes('final')
-              const followControls = renderFollowControls(g.id)
+              const isFinal = g.gameStatus === 3
+              const followControls = renderFollowControls(g.gameId)
               return (
                 <Link
-                  key={g.id}
-                  href={`/game/${g.id}`}
+                  key={g.gameId}
+                  href={`/game/${g.gameId}?sport=nfl`}
                   className="group block rounded-xl border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-accent/40 hover:shadow-lg"
                 >
                   {followControls && (
@@ -447,10 +453,10 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        {g.awayTeamId && (
+                        {g.awayTeam.logoUrl && (
                           <img
-                            src={getTeamLogoUrl(g.awayTeamId)}
-                            alt={g.awayTeam}
+                            src={g.awayTeam.logoUrl}
+                            alt={g.awayTeam.teamName}
                             className="h-8 w-8 object-contain"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none'
@@ -458,25 +464,25 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                           />
                         )}
                         <div>
-                          <div className="text-sm font-bold">{g.awayTeam}</div>
-                          {formatRecord(g.awayWins, g.awayLosses) && (
-                            <div className="text-xs text-gray-500">
-                              {formatRecord(g.awayWins, g.awayLosses)}
-                            </div>
-                          )}
+                          <div className="text-sm font-bold">
+                            {g.awayTeam.teamCity} {g.awayTeam.teamName}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {formatRecord(g.awayTeam.wins, g.awayTeam.losses, g.awayTeam.ties)}
+                          </div>
                         </div>
                       </div>
                       <div className="text-2xl font-bold">
-                        {hasAccess ? g.awayScore : '--'}
+                        {hasAccess ? g.awayTeam.score : '--'}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        {g.homeTeamId && (
+                        {g.homeTeam.logoUrl && (
                           <img
-                            src={getTeamLogoUrl(g.homeTeamId)}
-                            alt={g.homeTeam}
+                            src={g.homeTeam.logoUrl}
+                            alt={g.homeTeam.teamName}
                             className="h-8 w-8 object-contain"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none'
@@ -485,17 +491,15 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                         )}
                         <div>
                           <div className="text-sm font-bold text-brand-text">
-                            {g.homeTeam}
+                            {g.homeTeam.teamCity} {g.homeTeam.teamName}
                           </div>
-                          {formatRecord(g.homeWins, g.homeLosses) && (
-                            <div className="text-xs text-gray-500">
-                              {formatRecord(g.homeWins, g.homeLosses)}
-                            </div>
-                          )}
+                          <div className="text-xs text-gray-500">
+                            {formatRecord(g.homeTeam.wins, g.homeTeam.losses, g.homeTeam.ties)}
+                          </div>
                         </div>
                       </div>
                       <div className="text-2xl font-bold text-brand-text">
-                        {hasAccess ? g.homeScore : '--'}
+                        {hasAccess ? g.homeTeam.score : '--'}
                       </div>
                     </div>
                   </div>
@@ -506,7 +510,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
                         isFinal ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
                       }`}
                     >
-                      {g.status}
+                      {g.gameStatusText}
                     </span>
                     <span className="font-medium text-brand-accent transition group-hover:underline">
                       View details →
@@ -521,7 +525,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
       {games.length === 0 && (
         <div className="rounded-2xl border border-black/10 bg-white/80 p-12 text-center">
-          <h3 className="text-xl font-bold text-gray-900">No NBA games today</h3>
+          <h3 className="text-xl font-bold text-gray-900">No NFL games today</h3>
           <p className="mt-2 text-sm text-gray-600">
             Fresh matchups will appear here as soon as the schedule resumes.
           </p>

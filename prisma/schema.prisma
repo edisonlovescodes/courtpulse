@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,11 +17,12 @@ model GameUnlock {
   id          Int      @id @default(autoincrement())
   userId      String
   gameId      String
+  sport       String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   period      String   // 'day' | 'week'
   periodStart DateTime
   createdAt   DateTime @default(now())
 
-  @@unique([userId, gameId, period, periodStart])
+  @@unique([userId, gameId, sport, period, periodStart])
   @@index([userId, period, periodStart])
 }
 
@@ -31,17 +31,19 @@ model GameView {
   id        Int      @id @default(autoincrement())
   userId    String
   gameId    String
+  sport     String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   period    Int
   createdAt DateTime @default(now())
 
-  @@unique([userId, gameId, period])
+  @@unique([userId, gameId, sport, period])
   @@index([userId, gameId])
 }
 
 // Company notification settings
 model NotificationSettings {
   id                   Int      @id @default(autoincrement())
-  companyId            String   @unique
+  companyId            String
+  sport                String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   enabled              Boolean  @default(false)
   channelId            String?  // Whop chat channel ID
   channelName          String?  // Display name for UI
@@ -52,6 +54,8 @@ model NotificationSettings {
   trackedGames         String   @default("") // Comma-separated game IDs
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+
+  @@unique([companyId, sport])
 }
 
 // Track last notification state per game to avoid duplicates
@@ -59,13 +63,14 @@ model GameNotificationState {
   id                Int      @id @default(autoincrement())
   companyId         String
   gameId            String
+  sport             String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   lastHomeScore     Int      @default(0)
   lastAwayScore     Int      @default(0)
   lastPeriod        Int      @default(0)
   lastStatus        String   @default("")
   lastNotifiedAt    DateTime @default(now())
 
-  @@unique([companyId, gameId])
+  @@unique([companyId, gameId, sport])
   @@index([companyId])
 }
 
@@ -73,7 +78,7 @@ model GameNotificationState {
 model TestGameSession {
   id           Int      @id @default(autoincrement())
   gameId       String
-  snapshotData String   @db.Text // JSON of historical game data
+  snapshotData String   // JSON of historical game data
   startedAt    DateTime
   isActive     Boolean  @default(true)
   companyId    String

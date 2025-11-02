@@ -1,24 +1,15 @@
+'use client'
+import { useState } from 'react'
 import LiveGames from './components/LiveGames'
-import { headers } from 'next/headers'
-import { resolveAdminContextFromRequest } from '@/lib/whop'
+import LiveNFLGames from './components/LiveNFLGames'
 
-export const dynamic = 'force-dynamic'
+type Sport = 'nba' | 'nfl'
 
-export default async function HomePage() {
-  const hdrs = await headers()
-  const mockRequest = new Request('http://localhost:3000/', { headers: hdrs })
-  const ctx = await resolveAdminContextFromRequest(mockRequest)
-  const envFallback = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? null
-  const companyId = ctx.companyId || envFallback
+export default function HomePage() {
+  const [activeSport, setActiveSport] = useState<Sport>('nba')
+
+  const companyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? undefined
   const isAdmin = true
-
-  // DEBUG: Log what we're passing to LiveGames
-  console.log('[page.tsx] LiveGames props:', {
-    companyId,
-    isAdmin: ctx.isAdmin,
-    experienceId: ctx.experienceId,
-    source: ctx.source
-  })
 
   return (
     <>
@@ -26,16 +17,24 @@ export default async function HomePage() {
         {/* Sport Tabs */}
         <div className="flex gap-2 border-b border-black/10 pb-1">
           <button
-            className="px-4 py-2 font-medium text-brand-accent border-b-2 border-brand-accent -mb-[1px]"
+            onClick={() => setActiveSport('nba')}
+            className={`px-4 py-2 font-medium transition ${
+              activeSport === 'nba'
+                ? 'text-brand-accent border-b-2 border-brand-accent -mb-[1px]'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
             Basketball
           </button>
           <button
-            disabled
-            className="px-4 py-2 font-medium text-gray-400 cursor-not-allowed opacity-60 flex items-center gap-2"
+            onClick={() => setActiveSport('nfl')}
+            className={`px-4 py-2 font-medium transition ${
+              activeSport === 'nfl'
+                ? 'text-brand-accent border-b-2 border-brand-accent -mb-[1px]'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
             NFL
-            <span className="text-xs">(coming soon)</span>
           </button>
           <button
             disabled
@@ -53,7 +52,12 @@ export default async function HomePage() {
           </button>
         </div>
 
-        <LiveGames companyId={companyId ?? undefined} isAdmin={isAdmin} />
+        {activeSport === 'nba' && (
+          <LiveGames companyId={companyId} isAdmin={isAdmin} />
+        )}
+        {activeSport === 'nfl' && (
+          <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+        )}
       </main>
     </>
   )

@@ -14,6 +14,7 @@ export async function GET(req: Request) {
       url.searchParams.get('company_id') ||
       process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ||
       ''
+    const sport = url.searchParams.get('sport') || 'nba'
 
     if (!companyId) {
       return NextResponse.json(
@@ -23,7 +24,12 @@ export async function GET(req: Request) {
     }
 
     let settings = await prisma.notificationSettings.findUnique({
-      where: { companyId },
+      where: {
+        companyId_sport: {
+          companyId,
+          sport,
+        }
+      },
     })
 
     // Create default settings if none exist
@@ -31,6 +37,7 @@ export async function GET(req: Request) {
       settings = await prisma.notificationSettings.create({
         data: {
           companyId,
+          sport,
           enabled: false,
           updateFrequency: 'every_point',
           trackedGames: '',
@@ -71,6 +78,7 @@ export async function POST(req: Request) {
     console.log('[/api/admin/notifications] request body:', body)
     const {
       companyId,
+      sport,
       enabled,
       channelId,
       channelIds: inputChannelIds,
@@ -88,9 +96,11 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
-    
+
+    const sportType = sport || 'nba'
+
     // Trust the companyId from request body - client already validated access
-    console.log('[/api/admin/notifications] updating for company:', companyId)
+    console.log('[/api/admin/notifications] updating for company:', companyId, 'sport:', sportType)
 
     const channelIds = Array.isArray(inputChannelIds)
       ? inputChannelIds.map((id: any) => String(id).trim()).filter(Boolean)
@@ -103,9 +113,15 @@ export async function POST(req: Request) {
     const trackedGamesStr = Array.isArray(trackedGames) ? trackedGames.join(',') : (trackedGames || '')
 
     const settings = await prisma.notificationSettings.upsert({
-      where: { companyId },
+      where: {
+        companyId_sport: {
+          companyId,
+          sport: sportType,
+        }
+      },
       create: {
         companyId,
+        sport: sportType,
         enabled: enabled ?? false,
         channelId: channelIdCsv,
         channelName,

@@ -21,7 +21,12 @@ export function getLimitForPlan(plan: Plan): { period: Period; max: number } | n
   }
 }
 
-export async function canUnlockGame(userId: string, plan: Plan, gameId: string): Promise<{ allowed: boolean; reason?: string }> {
+export async function canUnlockGame(
+  userId: string,
+  plan: Plan,
+  gameId: string,
+  sport: string = 'nba'
+): Promise<{ allowed: boolean; reason?: string }> {
   const rule = getLimitForPlan(plan)
   if (!rule) return { allowed: true }
 
@@ -30,9 +35,10 @@ export async function canUnlockGame(userId: string, plan: Plan, gameId: string):
   // If already unlocked this game in this period, allow
   const existing = await prisma.gameUnlock.findUnique({
     where: {
-      userId_gameId_period_periodStart: {
+      userId_gameId_sport_period_periodStart: {
         userId,
         gameId,
+        sport,
         period: rule.period,
         periodStart,
       },
@@ -51,24 +57,34 @@ export async function canUnlockGame(userId: string, plan: Plan, gameId: string):
   return { allowed: true }
 }
 
-export async function unlockGame(userId: string, plan: Plan, gameId: string): Promise<void> {
+export async function unlockGame(
+  userId: string,
+  plan: Plan,
+  gameId: string,
+  sport: string = 'nba'
+): Promise<void> {
   const rule = getLimitForPlan(plan)
   const period: Period = rule ? rule.period : 'day'
   const periodStart = getPeriodStart(period)
 
   await prisma.gameUnlock.upsert({
     where: {
-      userId_gameId_period_periodStart: { userId, gameId, period, periodStart },
+      userId_gameId_sport_period_periodStart: { userId, gameId, sport, period, periodStart },
     },
-    create: { userId, gameId, period, periodStart },
+    create: { userId, gameId, sport, period, periodStart },
     update: {},
   })
 }
 
-export async function logGameView(userId: string, gameId: string, periodNum: number | null): Promise<void> {
+export async function logGameView(
+  userId: string,
+  gameId: string,
+  periodNum: number | null,
+  sport: string = 'nba'
+): Promise<void> {
   if (!periodNum || periodNum <= 0) return
   try {
-    await prisma.gameView.create({ data: { userId, gameId, period: periodNum } })
+    await prisma.gameView.create({ data: { userId, gameId, sport, period: periodNum } })
   } catch (e) {
     // ignore unique constraint conflicts
   }
