@@ -63,8 +63,15 @@ export type NFLGameDetail = NFLGame & {
  */
 export async function getTodaysNFLGames(): Promise<NFLGame[]> {
   try {
+    // Format today's date as YYYYMMDD for ESPN API
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+
     const response = await fetch(
-      'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dateStr}`,
       {
         next: { revalidate: 10 }, // Cache for 10 seconds for live updates
       }
