@@ -24,6 +24,13 @@ export async function GET(req: Request) {
 
     const channels = await listChatChannels(companyId)
 
+    // Debug: Log channel structure
+    console.log('[Channels API] Fetched channels for company:', companyId)
+    console.log('[Channels API] Channel count:', channels.length)
+    channels.forEach(ch => {
+      console.log(`[Channels API] Channel ${ch.id}: experience.id = ${ch.experience?.id}, experience.name = ${ch.experience?.name}`)
+    })
+
     return NextResponse.json({ channels })
   } catch (e: any) {
     console.error('Error listing chat channels:', e)
