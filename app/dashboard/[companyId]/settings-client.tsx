@@ -78,16 +78,10 @@ export default function DashboardSettings({ companyId, experienceId, authHeaders
       console.log('[Settings Debug] All channels:', JSON.stringify(allChannels, null, 2))
       console.log('[Settings Debug] Current experienceId:', experienceId)
 
-      // Filter channels by experienceId if provided
-      const filteredChannels = experienceId
-        ? allChannels.filter((ch: Channel) => {
-            console.log(`[Settings Debug] Channel ${ch.id}: experience.id = ${ch.experience?.id}`)
-            return ch.experience.id === experienceId
-          })
-        : allChannels
-
-      console.log('[Settings Debug] Filtered channels:', filteredChannels.length, 'of', allChannels.length)
-      setChannels(filteredChannels)
+      // Show all channels - don't filter by experienceId
+      // Users can select which channels to send notifications to
+      console.log('[Settings Debug] Showing all channels:', allChannels.length)
+      setChannels(allChannels)
 
       // Load NBA settings
       const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
