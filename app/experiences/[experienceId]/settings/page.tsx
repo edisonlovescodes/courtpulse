@@ -30,5 +30,5 @@ export default async function ExperienceSettingsPage(props: { params: Promise<{ 
     redirect('/')
   }
 
-  return <DashboardSettings companyId={companyId} backHref={`/experiences/${experienceId}`} />
+  return <DashboardSettings companyId={companyId} experienceId={experienceId} backHref={`/experiences/${experienceId}`} />
 }

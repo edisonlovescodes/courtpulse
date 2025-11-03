@@ -42,7 +42,7 @@ type NFLGame = {
   }
 }
 
-export default function DashboardSettings({ companyId, authHeaders, adminToken, backHref }: { companyId: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
+export default function DashboardSettings({ companyId, experienceId, authHeaders, adminToken, backHref }: { companyId: string, experienceId?: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
@@ -72,7 +72,14 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
       })
       if (!channelsRes.ok) throw new Error('Failed to load channels')
       const channelsData = await channelsRes.json()
-      setChannels(channelsData.channels || [])
+      const allChannels = channelsData.channels || []
+
+      // Filter channels by experienceId if provided
+      const filteredChannels = experienceId
+        ? allChannels.filter((ch: Channel) => ch.experience.id === experienceId)
+        : allChannels
+
+      setChannels(filteredChannels)
 
       // Load NBA settings
       const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
@@ -111,7 +118,7 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
     } finally {
       setLoading(false)
     }
-  }, [adminToken, authHeaders, companyId])
+  }, [adminToken, authHeaders, companyId, experienceId])
 
   // Auto-load settings on mount
   useEffect(() => {
