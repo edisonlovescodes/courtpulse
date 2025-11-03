@@ -14,6 +14,7 @@ type Channel = {
 type Settings = {
   id: number
   companyId: string
+  sport?: string
   enabled: boolean
   channelId: string | null
   channelIds?: string[]
@@ -25,10 +26,27 @@ type Settings = {
   trackedGames: string[]
 }
 
+type NFLGame = {
+  gameId: string
+  gameStatus: number
+  gameStatusText: string
+  homeTeam: {
+    teamCity: string
+    teamName: string
+    score: number
+  }
+  awayTeam: {
+    teamCity: string
+    teamName: string
+    score: number
+  }
+}
+
 export default function DashboardSettings({ companyId, authHeaders, adminToken, backHref }: { companyId: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
+  const [nflGames, setNflGames] = useState<NFLGame[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -41,6 +59,7 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
   const [notifyGameEnd, setNotifyGameEnd] = useState(true)
   const [notifyQuarterEnd, setNotifyQuarterEnd] = useState(true)
   const [trackedGames, setTrackedGames] = useState<string[]>([])
+  const [nflTrackedGames, setNflTrackedGames] = useState<string[]>([])
 
   const loadSettings = useCallback(async () => {
     setLoading(true)
@@ -55,8 +74,8 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
       const channelsData = await channelsRes.json()
       setChannels(channelsData.channels || [])
 
-      // Load settings
-      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}`, {
+      // Load NBA settings
+      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
         headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
       })
       if (!settingsRes.ok) throw new Error('Failed to load settings')
@@ -77,6 +96,15 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
       setNotifyQuarterEnd(s.notifyQuarterEnd)
       setTrackedGames(s.trackedGames || [])
 
+      // Load NFL tracked games
+      const nflSettingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
+        headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+      })
+      if (nflSettingsRes.ok) {
+        const nflData = await nflSettingsRes.json()
+        setNflTrackedGames(nflData.settings?.trackedGames || [])
+      }
+
       setMessage('')
     } catch (e: any) {
       setMessage(`Error: ${e.message}`)
@@ -87,11 +115,18 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
 
   // Auto-load settings on mount
   useEffect(() => {
-    // Load today's games via our API to avoid CORS issues
+    // Load today's NBA games
     fetch('/api/games/today', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
       .then((data: { games: TodayGame[] }) => setGames(data.games || []))
       .catch(() => setGames([]))
+
+    // Load today's NFL games
+    fetch('/api/nfl/today', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
+      .then((data: NFLGame[]) => setNflGames(data || []))
+      .catch(() => setNflGames([]))
+
     loadSettings()
   }, [loadSettings])
 
@@ -104,11 +139,13 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
         ? channels.find(c => c.id === selectedChannels[0])?.experience.name || null
         : null
 
+      // Save NBA settings
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
         body: JSON.stringify({
           companyId,
+          sport: 'nba',
           enabled,
           channelId: selectedChannels[0] || null,
           channelIds: selectedChannels,
@@ -121,7 +158,28 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
         }),
       })
 
-      if (!res.ok) throw new Error('Failed to save settings')
+      if (!res.ok) throw new Error('Failed to save NBA settings')
+
+      // Save NFL settings (tracked games only)
+      const nflRes = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+        body: JSON.stringify({
+          companyId,
+          sport: 'nfl',
+          enabled,
+          channelId: selectedChannels[0] || null,
+          channelIds: selectedChannels,
+          channelName,
+          updateFrequency,
+          notifyGameStart,
+          notifyGameEnd,
+          notifyQuarterEnd,
+          trackedGames: nflTrackedGames,
+        }),
+      })
+
+      if (!nflRes.ok) throw new Error('Failed to save NFL settings')
 
       const data = await res.json()
       setSettings(data.settings)
@@ -135,6 +193,14 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
 
   const toggleGame = (gameId: string) => {
     setTrackedGames(prev =>
+      prev.includes(gameId)
+        ? prev.filter(id => id !== gameId)
+        : [...prev, gameId]
+    )
+  }
+
+  const toggleNflGame = (gameId: string) => {
+    setNflTrackedGames(prev =>
       prev.includes(gameId)
         ? prev.filter(id => id !== gameId)
         : [...prev, gameId]
@@ -330,31 +396,65 @@ export default function DashboardSettings({ companyId, authHeaders, adminToken, 
             Choose which games you want to receive notifications for
           </p>
 
-          {games.length === 0 ? (
+          {games.length === 0 && nflGames.length === 0 ? (
             <p className="text-sm text-gray-500">No games today</p>
           ) : (
-            <div className="space-y-2">
-              {games.map(game => (
-                <label
-                  key={game.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-black/10 hover:bg-gray-50 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={trackedGames.includes(game.id)}
-                    onChange={() => toggleGame(game.id)}
-                    className="w-4 h-4 text-brand-accent rounded"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">
-                      {game.awayTeam} @ {game.homeTeam}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {game.status} • {game.awayScore} - {game.homeScore}
-                    </div>
-                  </div>
-                </label>
-              ))}
+            <div className="space-y-4">
+              {/* NBA Games */}
+              {games.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">NBA Games</h4>
+                  {games.map(game => (
+                    <label
+                      key={game.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-black/10 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={trackedGames.includes(game.id)}
+                        onChange={() => toggleGame(game.id)}
+                        className="w-4 h-4 text-brand-accent rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {game.awayTeam} @ {game.homeTeam}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {game.status} • {game.awayScore} - {game.homeScore}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* NFL Games */}
+              {nflGames.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">NFL Games</h4>
+                  {nflGames.map(game => (
+                    <label
+                      key={game.gameId}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-black/10 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={nflTrackedGames.includes(game.gameId)}
+                        onChange={() => toggleNflGame(game.gameId)}
+                        className="w-4 h-4 text-brand-accent rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {game.awayTeam.teamCity} {game.awayTeam.teamName} @ {game.homeTeam.teamCity} {game.homeTeam.teamName}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {game.gameStatusText} • {game.awayTeam.score} - {game.homeTeam.score}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
