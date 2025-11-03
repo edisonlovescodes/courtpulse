@@ -113,8 +113,6 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
   const companyId = initialCompanyId ?? fallbackCompanyId ?? undefined
   const hasAdminAccess = Boolean(companyId)
 
-  console.log('[LiveNFLGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })
-
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)

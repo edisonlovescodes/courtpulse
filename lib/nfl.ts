@@ -87,7 +87,9 @@ export async function getTodaysNFLGames(): Promise<NFLGame[]> {
       return [];
     }
 
-    return data.events.map((event: any) => parseNFLGame(event.competitions[0], event.id));
+    return data.events
+      .filter((event: any) => event.competitions && event.competitions.length > 0)
+      .map((event: any) => parseNFLGame(event.competitions[0], event.id));
   } catch (error) {
     console.error('Error fetching NFL games:', error);
     return [];
@@ -134,9 +136,10 @@ export async function getNFLGame(gameId: string): Promise<NFLGameDetail | null> 
  * Parses ESPN API game data into our NFLGame format
  */
 function parseNFLGame(competition: any, eventId?: string): NFLGame {
-  const status = competition.status;
-  const homeTeam = competition.competitors.find((c: any) => c.homeAway === 'home');
-  const awayTeam = competition.competitors.find((c: any) => c.homeAway === 'away');
+  const status = competition?.status || {};
+  const competitors = competition?.competitors || [];
+  const homeTeam = competitors.find((c: any) => c.homeAway === 'home');
+  const awayTeam = competitors.find((c: any) => c.homeAway === 'away');
 
   // Determine possession
   const possession = competition.situation?.possession;
@@ -149,11 +152,11 @@ function parseNFLGame(competition: any, eventId?: string): NFLGame {
   const possessionText = situation?.possessionText;
 
   return {
-    gameId: eventId || competition.id || competition.event?.id,
-    gameStatus: status.type.state === 'pre' ? 1 : status.type.state === 'in' ? 2 : 3,
-    gameStatusText: status.type.detail,
-    period: status.period || 0,
-    gameClock: status.displayClock || '',
+    gameId: eventId || competition.id || competition.event?.id || 'unknown',
+    gameStatus: status?.type?.state === 'pre' ? 1 : status?.type?.state === 'in' ? 2 : 3,
+    gameStatusText: status?.type?.detail || 'Unknown',
+    period: status?.period || 0,
+    gameClock: status?.displayClock || '',
     down: situation?.down,
     distance: situation?.distance,
     yardLine: situation?.possessionText,

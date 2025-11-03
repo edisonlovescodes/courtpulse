@@ -111,9 +111,6 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   const companyId = initialCompanyId ?? fallbackCompanyId ?? undefined
   const hasAdminAccess = Boolean(companyId)
 
-  // DEBUG: Log what LiveGames receives
-  console.log('[LiveGames] Received props:', { initialCompanyId, isAdmin, hasAdminAccess })
-
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
@@ -186,8 +183,6 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
-    console.log('toggleTrackedGame called:', { companyId, hasNotifSettings: !!notifSettings, channelIds: notifSettings?.channelIds })
-    
     if (!companyId) {
       setNotifError('Company context missing. Please refresh the page.')
       return

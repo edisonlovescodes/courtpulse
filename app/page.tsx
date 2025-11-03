@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import LiveGames from './components/LiveGames'
-import LiveNFLGames from './components/LiveNFLGames'
+
+const LiveNFLGames = lazy(() => import('./components/LiveNFLGames'))
 
 type Sport = 'nba' | 'nfl'
 
@@ -56,7 +57,9 @@ export default function HomePage() {
           <LiveGames companyId={companyId} isAdmin={isAdmin} />
         )}
         {activeSport === 'nfl' && (
-          <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+          <Suspense fallback={<div className="text-center py-8 text-gray-500">Loading...</div>}>
+            <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+          </Suspense>
         )}
       </main>
     </>

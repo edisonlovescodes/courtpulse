@@ -44,17 +44,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     companyId = ctx.companyId || (ctx.isAdmin ? envFallbackCompanyId : null)
   }
 
-  // DEBUG: Log what we're passing to AdminCog
-  console.log('[layout.tsx] AdminCog props:', {
-    companyId,
-    headerCompanyId,
-    resolvedCompanyId: ctx?.companyId ?? null,
-    isAdmin: ctx?.isAdmin ?? null,
-    experienceId: ctx?.experienceId ?? null,
-    source: ctx?.source ?? (headerCompanyId ? 'header' : 'none'),
-    fallbackUsed: !ctx?.companyId && !!companyId
-  })
-  
   return (
     <html lang="en">
       <body className="min-h-screen bg-brand-bg text-brand-text antialiased">
