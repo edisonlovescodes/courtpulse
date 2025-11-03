@@ -245,9 +245,10 @@ function extractIdsFromReferer(referer: string | null): { companyId: string | nu
     const companyId =
       refUrl.searchParams.get('company_id') ||
       (refUrl.pathname.match(/\/(?:companies|company)\/(biz_[A-Za-z0-9]+)/i)?.[1] ?? null)
+    // Match both xp_ and exp_ prefixes for experience IDs
     const experienceId =
       refUrl.searchParams.get('experience_id') ||
-      (refUrl.pathname.match(/\/(?:experiences|experience)\/(xp_[A-Za-z0-9]+)/i)?.[1] ?? null)
+      (refUrl.pathname.match(/\/(?:experiences|experience|joined\/[^/]+)\/((?:xp|exp)_[A-Za-z0-9]+)/i)?.[1] ?? null)
     return { companyId, experienceId }
   } catch {
     return { companyId: null, experienceId: null }
@@ -274,6 +275,7 @@ export async function resolveAdminContext(options: ResolveAdminOptions): Promise
   console.log('[resolveAdminContext] Starting with headers:', debugHeaders)
 
   const referer = headersLike.get('referer') || headersLike.get('Referrer') || null
+  console.log('[resolveAdminContext] Referer:', referer)
 
   const fromHeaders = {
     companyId: debugHeaders['X-Whop-Company-Id'],
@@ -284,6 +286,7 @@ export async function resolveAdminContext(options: ResolveAdminOptions): Promise
     experienceId: requestUrl.searchParams.get('experience_id'),
   }
   const fromReferer = extractIdsFromReferer(referer)
+  console.log('[resolveAdminContext] Extracted from referer:', fromReferer)
 
   let source: AdminContextSource = 'none'
 
