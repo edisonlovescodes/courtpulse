@@ -74,11 +74,19 @@ export default function DashboardSettings({ companyId, experienceId, authHeaders
       const channelsData = await channelsRes.json()
       const allChannels = channelsData.channels || []
 
+      // Debug: Log channel structure to understand the data
+      console.log('[Settings Debug] All channels:', JSON.stringify(allChannels, null, 2))
+      console.log('[Settings Debug] Current experienceId:', experienceId)
+
       // Filter channels by experienceId if provided
       const filteredChannels = experienceId
-        ? allChannels.filter((ch: Channel) => ch.experience.id === experienceId)
+        ? allChannels.filter((ch: Channel) => {
+            console.log(`[Settings Debug] Channel ${ch.id}: experience.id = ${ch.experience?.id}`)
+            return ch.experience.id === experienceId
+          })
         : allChannels
 
+      console.log('[Settings Debug] Filtered channels:', filteredChannels.length, 'of', allChannels.length)
       setChannels(filteredChannels)
 
       // Load NBA settings
