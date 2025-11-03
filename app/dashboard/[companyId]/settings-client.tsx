@@ -42,7 +42,7 @@ type NFLGame = {
   }
 }
 
-export default function DashboardSettings({ companyId, experienceId, authHeaders, adminToken, backHref }: { companyId: string, experienceId?: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
+export default function DashboardSettings({ companyId, experienceId: serverExperienceId, authHeaders, adminToken, backHref }: { companyId: string, experienceId?: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
@@ -60,6 +60,29 @@ export default function DashboardSettings({ companyId, experienceId, authHeaders
   const [notifyQuarterEnd, setNotifyQuarterEnd] = useState(true)
   const [trackedGames, setTrackedGames] = useState<string[]>([])
   const [nflTrackedGames, setNflTrackedGames] = useState<string[]>([])
+
+  // Extract experienceId from URL if not provided by server
+  const experienceId = serverExperienceId || (() => {
+    if (typeof window === 'undefined') return undefined
+    // Try to extract from parent URL (when in iframe)
+    try {
+      const parentUrl = window.parent.location.href
+      const match = parentUrl.match(/\/((?:exp|xp)_[A-Za-z0-9]+)/)
+      if (match) {
+        console.log('[Settings Debug] Extracted experienceId from parent URL:', match[1])
+        return match[1]
+      }
+    } catch (e) {
+      // Cross-origin iframe, can't access parent
+    }
+    // Try to extract from current URL
+    const match = window.location.href.match(/\/((?:exp|xp)_[A-Za-z0-9]+)/)
+    if (match) {
+      console.log('[Settings Debug] Extracted experienceId from current URL:', match[1])
+      return match[1]
+    }
+    return undefined
+  })()
 
   const loadSettings = useCallback(async () => {
     setLoading(true)
