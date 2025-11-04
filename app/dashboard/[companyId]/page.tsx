@@ -20,5 +20,15 @@ export default async function CompanyDashboard(props: {
 
   const ctx = await resolveAdminContext({ headers: hdrs, url })
 
-  return <DashboardSettings companyId={params.companyId} experienceId={ctx.experienceId || undefined} />
+  // Pass debug info to client component
+  const debugInfo = {
+    extractedCompanyId: ctx.companyId,
+    usedFallback: !ctx.companyId,
+    fallbackValue: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID,
+    finalCompanyId: params.companyId,
+    accessLevel: ctx.accessLevel,
+    isAdmin: ctx.isAdmin,
+  }
+
+  return <DashboardSettings companyId={params.companyId} experienceId={ctx.experienceId || undefined} debugContext={debugInfo} />
 }

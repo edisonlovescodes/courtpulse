@@ -59,6 +59,13 @@ type DashboardSettingsProps = {
 }
 
 export default function DashboardSettings({ companyId, experienceId: serverExperienceId, authHeaders, adminToken, backHref, debugContext }: DashboardSettingsProps) {
+  // ALWAYS log to verify prop is being passed
+  console.log('[Settings Debug] === PROPS RECEIVED ===')
+  console.log('[Settings Debug] companyId prop:', companyId)
+  console.log('[Settings Debug] serverExperienceId prop:', serverExperienceId)
+  console.log('[Settings Debug] debugContext prop:', debugContext)
+  console.log('[Settings Debug] debugContext is null/undefined?', debugContext === null || debugContext === undefined)
+
   // Log debug context from server component to diagnose company ID extraction
   if (debugContext) {
     console.log('[Settings Debug] === SERVER CONTEXT DEBUG ===')
@@ -69,6 +76,8 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
     console.log('[Settings Debug] Access level:', debugContext.accessLevel)
     console.log('[Settings Debug] Is admin:', debugContext.isAdmin)
     console.log('[Settings Debug] === END SERVER CONTEXT ===')
+  } else {
+    console.log('[Settings Debug] ⚠️ debugContext was NOT passed from server component!')
   }
 
   const [channels, setChannels] = useState<Channel[]>([])
