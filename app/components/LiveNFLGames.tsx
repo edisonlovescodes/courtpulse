@@ -145,8 +145,8 @@ export default function LiveNFLGames({ companyId: initialCompanyId, experienceId
     const id = setInterval(loadGames, 10_000) // Refresh every 10 seconds
 
     // Handle browser back/forward cache restoration
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
+    const handlePageShow = (event: Event) => {
+      if ('persisted' in event && (event as any).persisted) {
         // Page was restored from bfcache, reload games
         loadGames()
       }

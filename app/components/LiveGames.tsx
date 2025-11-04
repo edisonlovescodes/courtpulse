@@ -143,8 +143,8 @@ export default function LiveGames({ companyId: initialCompanyId, experienceId, i
     const id = setInterval(loadGames, 10_000)
 
     // Handle browser back/forward cache restoration
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
+    const handlePageShow = (event: Event) => {
+      if ('persisted' in event && (event as any).persisted) {
         // Page was restored from bfcache, reload games
         loadGames()
       }
