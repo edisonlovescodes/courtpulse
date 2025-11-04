@@ -18,11 +18,18 @@ export default async function ExperienceSettingsPage(props: { params: Promise<{ 
     fallbackExperienceId: experienceId,
   })
 
+  // DEBUG: Log the exact value and type before the || evaluation
+  console.log('[Experience Settings] ctx.companyId RAW VALUE:', ctx.companyId)
+  console.log('[Experience Settings] ctx.companyId TYPE:', typeof ctx.companyId)
+  console.log('[Experience Settings] ctx.companyId IS TRUTHY?:', !!ctx.companyId)
+  console.log('[Experience Settings] ENV FALLBACK:', process.env.NEXT_PUBLIC_WHOP_COMPANY_ID)
+
   const companyId = ctx.companyId || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
 
   console.log('[Experience Settings] Experience ID:', experienceId)
   console.log('[Experience Settings] Company ID from context:', ctx.companyId)
-  console.log('[Experience Settings] Final company ID:', companyId)
+  console.log('[Experience Settings] Final company ID AFTER || evaluation:', companyId)
+  console.log('[Experience Settings] DID WE USE THE CORRECT COMPANY ID?:', companyId === ctx.companyId)
   console.log('[Experience Settings] Access level:', ctx.accessLevel)
   console.log('[Experience Settings] Is admin:', ctx.isAdmin)
 
