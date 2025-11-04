@@ -336,27 +336,19 @@ export function isLiveStatus(status: string): boolean {
 }
 
 // Get current season stats for a team
-// Calculates accurate season averages from all completed games
+// Calculates accurate season averages from completed games
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
   try {
     console.log(`[getTeamSeasonStats] Fetching stats for team ${teamId}`)
 
-    // Calculate from all completed games this season
     const games: NBAGame[] = []
     const today = new Date()
 
-    // Fetch games from the start of the season (October) to today
-    // NBA season typically starts in late October
-    const seasonStart = new Date(today.getFullYear(), 9, 1) // October 1
-    if (today < seasonStart) {
-      // If we're before October, use last year's season
-      seasonStart.setFullYear(today.getFullYear() - 1)
-    }
+    // Fetch last 40 days (fast enough for serverless, enough for good sample)
+    // Teams play ~3-4 games per week = ~20 games in 40 days
+    const daysToFetch = 40
 
-    const daysToFetch = Math.min(Math.ceil((today.getTime() - seasonStart.getTime()) / (1000 * 60 * 60 * 24)), 120)
-    console.log(`[getTeamSeasonStats] Will fetch ${daysToFetch} days of games`)
-
-    for (let i = 0; i < daysToFetch && games.length < 82; i++) {
+    for (let i = 0; i < daysToFetch && games.length < 25; i++) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
@@ -378,8 +370,9 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
         )
 
         if (teamGames.length > 0) {
-          console.log(`[getTeamSeasonStats] Found ${teamGames.length} games on ${dateStr}`)
           games.push(...teamGames)
+          // Stop early if we have enough for accurate average
+          if (games.length >= 15) break
         }
       } catch (e) {
         // Continue on error
