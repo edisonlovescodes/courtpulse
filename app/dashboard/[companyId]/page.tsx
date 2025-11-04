@@ -2,12 +2,23 @@ import { headers } from 'next/headers'
 import DashboardSettings from './settings-client'
 import { resolveAdminContext } from '@/lib/whop'
 
-export default async function CompanyDashboard(props: { params: Promise<{ companyId: string }> }) {
+export default async function CompanyDashboard(props: {
+  params: Promise<{ companyId: string }>
+  searchParams: Promise<{ experience_id?: string }>
+}) {
   const params = await props.params
+  const searchParams = await props.searchParams
 
-  // Extract experienceId from Whop context
+  // Extract experienceId from Whop context (headers, query params, referer)
   const hdrs = await headers()
-  const ctx = await resolveAdminContext({ headers: hdrs, url: `/dashboard/${params.companyId}` })
+
+  // Rebuild URL with query params for proper context resolution
+  const queryString = searchParams.experience_id
+    ? `?experience_id=${searchParams.experience_id}`
+    : ''
+  const url = `/dashboard/${params.companyId}${queryString}`
+
+  const ctx = await resolveAdminContext({ headers: hdrs, url })
 
   return <DashboardSettings companyId={params.companyId} experienceId={ctx.experienceId || undefined} />
 }

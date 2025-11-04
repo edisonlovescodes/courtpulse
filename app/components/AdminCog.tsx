@@ -4,12 +4,18 @@ import Link from 'next/link'
 
 type AdminCogProps = {
   initialCompanyId?: string | null
+  initialExperienceId?: string | null
 }
 
-export default function AdminCog({ initialCompanyId }: AdminCogProps) {
+export default function AdminCog({ initialCompanyId, initialExperienceId }: AdminCogProps) {
   const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
   const companyId = initialCompanyId ?? fallbackCompanyId
-  const href = companyId ? `/dashboard/${companyId}` : '/dashboard'
+
+  // Build URL with experienceId query parameter if available
+  const baseHref = companyId ? `/dashboard/${companyId}` : '/dashboard'
+  const href = initialExperienceId
+    ? `${baseHref}?experience_id=${initialExperienceId}`
+    : baseHref
 
   return (
     <Link

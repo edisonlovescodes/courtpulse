@@ -18,31 +18,27 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const hdrs = await headers()
   const envFallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? null
 
-  // Middleware already mirrors company id into the headers – prefer that first
+  // Rebuild the absolute URL so the resolver can extract both companyId and experienceId
+  const proto = hdrs.get('x-forwarded-proto') || 'http'
+  const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || 'localhost:3000'
+  const path = hdrs.get('x-forwarded-path') || '/'
+  const absoluteUrl = `${proto}://${host}${path}`
+
+  const headersClone = new Headers()
+  hdrs.forEach((value, key) => {
+    headersClone.append(key, value)
+  })
+
+  const mockRequest = new Request(absoluteUrl, { headers: headersClone })
+  const ctx = await resolveAdminContextFromRequest(mockRequest)
+
+  // Prefer header company ID, then ctx, then env fallback
   const headerCompanyId =
     hdrs.get('x-company-id') ||
     hdrs.get('x-whop-company-id') ||
     hdrs.get('whop-company-id')
 
-  let companyId: string | null = headerCompanyId
-  let ctx: Awaited<ReturnType<typeof resolveAdminContextFromRequest>> | null = null
-
-  if (!companyId) {
-    // No direct header hit – rebuild the absolute URL so the resolver can look at query/referer
-    const proto = hdrs.get('x-forwarded-proto') || 'http'
-    const host = hdrs.get('x-forwarded-host') || hdrs.get('host') || 'localhost:3000'
-    const path = hdrs.get('x-forwarded-path') || '/'
-    const absoluteUrl = `${proto}://${host}${path}`
-
-    const headersClone = new Headers()
-    hdrs.forEach((value, key) => {
-      headersClone.append(key, value)
-    })
-
-    const mockRequest = new Request(absoluteUrl, { headers: headersClone })
-    ctx = await resolveAdminContextFromRequest(mockRequest)
-    companyId = ctx.companyId || (ctx.isAdmin ? envFallbackCompanyId : null)
-  }
+  const companyId = headerCompanyId || ctx.companyId || (ctx.isAdmin ? envFallbackCompanyId : null)
 
   return (
     <html lang="en">
@@ -63,7 +59,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 >
                   Standings
                 </Link>
-                <AdminCog initialCompanyId={companyId} />
+                <AdminCog initialCompanyId={companyId} initialExperienceId={ctx?.experienceId} />
               </div>
             </nav>
           </header>
