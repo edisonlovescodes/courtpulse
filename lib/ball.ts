@@ -363,6 +363,14 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
         const json = await res.json()
         const dayGames: NBAGame[] = json.scoreboard?.games || []
 
+        // Debug: log what we found
+        const teamGamesAny = dayGames.filter(g =>
+          (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId)
+        )
+        if (teamGamesAny.length > 0) {
+          console.log(`[getTeamSeasonStats] Date ${dateStr}: Found ${teamGamesAny.length} games for team, ${teamGamesAny.filter(g => g.gameStatus === 3).length} final, ${teamGamesAny.filter(g => g.homeTeam.statistics && g.awayTeam.statistics).length} with stats`)
+        }
+
         const teamGames = dayGames.filter(g =>
           g.gameStatus === 3 && // Final
           (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId) &&
