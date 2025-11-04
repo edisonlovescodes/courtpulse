@@ -396,10 +396,16 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
     }
 
     const data = await res.json()
+
+    // Log the actual ESPN response structure to understand where stats are located
+    console.log(`[getTeamSeasonStats] ESPN response structure for team ${espnTeamId}:`)
+    console.log(JSON.stringify(data, null, 2))
+
     const stats = data?.team?.record?.items?.[0]?.stats || data?.splits?.categories?.[0]?.stats
 
     if (!stats || !Array.isArray(stats)) {
       console.log(`[getTeamSeasonStats] No stats found in ESPN response for team ${espnTeamId}`)
+      console.log(`[getTeamSeasonStats] Available keys:`, Object.keys(data || {}))
       return null
     }
 
