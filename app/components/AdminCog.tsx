@@ -11,11 +11,13 @@ export default function AdminCog({ initialCompanyId, initialExperienceId }: Admi
   const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
   const companyId = initialCompanyId ?? fallbackCompanyId
 
-  // Build URL with experienceId query parameter if available
-  const baseHref = companyId ? `/dashboard/${companyId}` : '/dashboard'
+  // If experienceId is available, link to /experiences/[experienceId]/settings
+  // Otherwise fall back to /dashboard/[companyId]
   const href = initialExperienceId
-    ? `${baseHref}?experience_id=${initialExperienceId}`
-    : baseHref
+    ? `/experiences/${initialExperienceId}/settings`
+    : companyId
+      ? `/dashboard/${companyId}`
+      : '/dashboard'
 
   return (
     <Link
