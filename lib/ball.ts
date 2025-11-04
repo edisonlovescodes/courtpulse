@@ -336,69 +336,27 @@ export function isLiveStatus(status: string): boolean {
 }
 
 // Get current season stats for a team
-// Uses NBA's official stats API for accurate current season averages
+// Calculates accurate season averages from all completed games
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
   try {
-    // Try NBA Stats API first for accurate current season stats
-    const statsUrl = `https://stats.nba.com/stats/teamdashboardbygeneralsplits?DateFrom=&DateTo=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlusMinus=N&Rank=N&Season=2024-25&SeasonSegment=&SeasonType=Regular+Season&ShotClockRange=&Split=general&TeamID=${teamId}&VsConference=&VsDivision=`
+    console.log(`[getTeamSeasonStats] Fetching stats for team ${teamId}`)
 
-    try {
-      const statsRes = await fetch(statsUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://www.nba.com/',
-          'Origin': 'https://www.nba.com',
-        },
-        next: { revalidate: 3600 }, // Cache for 1 hour
-      })
-
-      if (statsRes.ok) {
-        const statsJson = await statsRes.json()
-        const rows = statsJson?.resultSets?.[0]?.rowSet?.[0]
-        const headers = statsJson?.resultSets?.[0]?.headers
-
-        if (rows && headers) {
-          const getStatValue = (headerName: string) => {
-            const idx = headers.indexOf(headerName)
-            return idx >= 0 ? rows[idx] : 0
-          }
-
-          const ppg = getStatValue('PTS')
-          const papg = getStatValue('OPP_PTS') || (ppg - (getStatValue('PLUS_MINUS') || 0))
-          const fgPct = getStatValue('FG_PCT') * 100
-          const fg3Pct = getStatValue('FG3_PCT') * 100
-          const ftPct = getStatValue('FT_PCT') * 100
-          const rpg = getStatValue('REB')
-          const apg = getStatValue('AST')
-          const spg = getStatValue('STL')
-          const bpg = getStatValue('BLK')
-          const tpg = getStatValue('TOV')
-
-          console.log(`Loaded official season stats for team ${teamId} from NBA Stats API`)
-
-          return {
-            ppg: Math.round(ppg * 10) / 10,
-            papg: Math.round(papg * 10) / 10,
-            fgPct: Math.round(fgPct * 10) / 10,
-            fg3Pct: Math.round(fg3Pct * 10) / 10,
-            ftPct: Math.round(ftPct * 10) / 10,
-            rpg: Math.round(rpg * 10) / 10,
-            apg: Math.round(apg * 10) / 10,
-            spg: Math.round(spg * 10) / 10,
-            bpg: Math.round(bpg * 10) / 10,
-            tpg: Math.round(tpg * 10) / 10,
-          }
-        }
-      }
-    } catch (statsError) {
-      console.log('NBA Stats API failed, falling back to game calculation:', statsError)
-    }
-
-    // Fallback: Calculate from recent games (expanded to 90 days for better season coverage)
+    // Calculate from all completed games this season
     const games: NBAGame[] = []
     const today = new Date()
 
-    for (let i = 0; i < 90 && games.length < 50; i++) {
+    // Fetch games from the start of the season (October) to today
+    // NBA season typically starts in late October
+    const seasonStart = new Date(today.getFullYear(), 9, 1) // October 1
+    if (today < seasonStart) {
+      // If we're before October, use last year's season
+      seasonStart.setFullYear(today.getFullYear() - 1)
+    }
+
+    const daysToFetch = Math.min(Math.ceil((today.getTime() - seasonStart.getTime()) / (1000 * 60 * 60 * 24)), 120)
+    console.log(`[getTeamSeasonStats] Will fetch ${daysToFetch} days of games`)
+
+    for (let i = 0; i < daysToFetch && games.length < 82; i++) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
@@ -418,20 +376,23 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
           (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId) &&
           g.homeTeam.statistics && g.awayTeam.statistics
         )
-        games.push(...teamGames)
 
-        if (games.length >= 30) break
-      } catch {
+        if (teamGames.length > 0) {
+          console.log(`[getTeamSeasonStats] Found ${teamGames.length} games on ${dateStr}`)
+          games.push(...teamGames)
+        }
+      } catch (e) {
+        // Continue on error
         continue
       }
     }
 
     if (games.length === 0) {
-      console.log(`No completed games found for team ${teamId}`)
+      console.log(`[getTeamSeasonStats] No completed games found for team ${teamId}`)
       return null
     }
 
-    console.log(`Calculated stats from ${games.length} games for team ${teamId}`)
+    console.log(`[getTeamSeasonStats] Calculating stats from ${games.length} games for team ${teamId}`)
 
     let totalPPG = 0, totalPAPG = 0, totalFG = 0, totalFGA = 0
     let total3P = 0, total3PA = 0, totalFT = 0, totalFTA = 0
@@ -460,7 +421,7 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
 
     const gameCount = games.length
 
-    return {
+    const result = {
       ppg: Math.round((totalPPG / gameCount) * 10) / 10,
       papg: Math.round((totalPAPG / gameCount) * 10) / 10,
       fgPct: Math.round((totalFG / totalFGA * 100) * 10) / 10,
@@ -472,8 +433,11 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
       bpg: Math.round((totalBLK / gameCount) * 10) / 10,
       tpg: Math.round((totalTOV / gameCount) * 10) / 10,
     }
+
+    console.log(`[getTeamSeasonStats] Result for team ${teamId}:`, result)
+    return result
   } catch (e) {
-    console.error('Error getting team season stats for team', teamId, ':', e)
+    console.error('[getTeamSeasonStats] Error getting team season stats for team', teamId, ':', e)
     return null
   }
 }
