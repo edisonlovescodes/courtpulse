@@ -139,6 +139,13 @@ export type NBAGame = {
   awayTeam: NBATeam
 }
 
+export type TopPlayer = {
+  personId: number
+  name: string
+  points: number
+  jerseyNum: string
+}
+
 export type TodayGame = {
   id: string
   homeTeam: string
@@ -156,6 +163,8 @@ export type TodayGame = {
   awayTeamId?: number
   homeTricode?: string
   awayTricode?: string
+  homeTopPlayers?: TopPlayer[]
+  awayTopPlayers?: TopPlayer[]
 }
 
 export function formatGameClock(clock?: string): string {
@@ -183,6 +192,32 @@ export function getTeamLogoUrl(teamId: number): string {
 // Alternative PNG logos if SVG doesn't work
 export function getTeamLogoPngUrl(teamTricode: string): string {
   return `https://cdn.nba.com/logos/nba/${teamTricode}/logo.png`
+}
+
+// Get player headshot URL from NBA CDN
+export function getPlayerHeadshotUrl(personId: number): string {
+  return `https://cdn.nba.com/headshots/nba/latest/1040x760/${personId}.png`
+}
+
+// Alternative lower resolution player headshot
+export function getPlayerHeadshotSmallUrl(personId: number): string {
+  return `https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/${personId}.png`
+}
+
+// Extract top 3 players by points from a team's player list
+export function getTopPlayers(players?: PlayerStats[], limit: number = 3): TopPlayer[] {
+  if (!players || players.length === 0) return []
+
+  return players
+    .filter(p => p.played === '1' && p.statistics.points > 0)
+    .sort((a, b) => b.statistics.points - a.statistics.points)
+    .slice(0, limit)
+    .map(p => ({
+      personId: p.personId,
+      name: p.name,
+      points: p.statistics.points,
+      jerseyNum: p.jerseyNum
+    }))
 }
 
 export async function getTodayGames(): Promise<TodayGame[]> {
