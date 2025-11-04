@@ -20,15 +20,19 @@ export default async function CompanyDashboard(props: {
 
   const ctx = await resolveAdminContext({ headers: hdrs, url })
 
+  // CRITICAL FIX: Use the resolved company ID from headers, NOT the URL parameter!
+  // The URL may contain the wrong company ID, but Whop headers provide the correct one
+  const resolvedCompanyId = ctx.companyId || params.companyId
+
   // Pass debug info to client component
   const debugInfo = {
     extractedCompanyId: ctx.companyId,
     usedFallback: !ctx.companyId,
     fallbackValue: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID,
-    finalCompanyId: params.companyId,
+    finalCompanyId: resolvedCompanyId,
     accessLevel: ctx.accessLevel,
     isAdmin: ctx.isAdmin,
   }
 
-  return <DashboardSettings companyId={params.companyId} experienceId={ctx.experienceId || undefined} debugContext={debugInfo} />
+  return <DashboardSettings companyId={resolvedCompanyId} experienceId={ctx.experienceId || undefined} debugContext={debugInfo} />
 }
