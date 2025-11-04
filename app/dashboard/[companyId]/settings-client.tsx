@@ -42,7 +42,35 @@ type NFLGame = {
   }
 }
 
-export default function DashboardSettings({ companyId, experienceId: serverExperienceId, authHeaders, adminToken, backHref }: { companyId: string, experienceId?: string, authHeaders?: Record<string, string>, adminToken?: string, backHref?: string }) {
+type DashboardSettingsProps = {
+  companyId: string
+  experienceId?: string
+  authHeaders?: Record<string, string>
+  adminToken?: string
+  backHref?: string
+  debugContext?: {
+    extractedCompanyId: string | null
+    usedFallback: boolean
+    fallbackValue: string | undefined
+    finalCompanyId: string
+    accessLevel?: string
+    isAdmin?: boolean
+  }
+}
+
+export default function DashboardSettings({ companyId, experienceId: serverExperienceId, authHeaders, adminToken, backHref, debugContext }: DashboardSettingsProps) {
+  // Log debug context from server component to diagnose company ID extraction
+  if (debugContext) {
+    console.log('[Settings Debug] === SERVER CONTEXT DEBUG ===')
+    console.log('[Settings Debug] Company ID extracted from Whop headers:', debugContext.extractedCompanyId)
+    console.log('[Settings Debug] Used env fallback?', debugContext.usedFallback)
+    console.log('[Settings Debug] Fallback env value:', debugContext.fallbackValue)
+    console.log('[Settings Debug] Final company ID:', debugContext.finalCompanyId)
+    console.log('[Settings Debug] Access level:', debugContext.accessLevel)
+    console.log('[Settings Debug] Is admin:', debugContext.isAdmin)
+    console.log('[Settings Debug] === END SERVER CONTEXT ===')
+  }
+
   const [channels, setChannels] = useState<Channel[]>([])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])

@@ -31,5 +31,15 @@ export default async function ExperienceSettingsPage(props: { params: Promise<{ 
     redirect('/')
   }
 
-  return <DashboardSettings companyId={companyId} experienceId={experienceId} backHref={`/experiences/${experienceId}`} />
+  // Pass debug info to client component for browser console visibility
+  const debugInfo = {
+    extractedCompanyId: ctx.companyId,
+    usedFallback: !ctx.companyId,
+    fallbackValue: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID,
+    finalCompanyId: companyId,
+    accessLevel: ctx.accessLevel,
+    isAdmin: ctx.isAdmin,
+  }
+
+  return <DashboardSettings companyId={companyId} experienceId={experienceId} backHref={`/experiences/${experienceId}`} debugContext={debugInfo} />
 }
