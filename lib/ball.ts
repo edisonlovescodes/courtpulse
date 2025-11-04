@@ -336,111 +336,13 @@ export function isLiveStatus(status: string): boolean {
 }
 
 // Get current season stats for a team
-// Calculates accurate season averages from completed games
+// For pre-game use, returns estimated stats based on record
+// Live game stats are always accurate and pulled from game data
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
-  try {
-    console.log(`[getTeamSeasonStats] Fetching stats for team ${teamId}`)
-
-    const games: NBAGame[] = []
-    const today = new Date()
-
-    // Fetch last 40 days (fast enough for serverless, enough for good sample)
-    // Teams play ~3-4 games per week = ~20 games in 40 days
-    const daysToFetch = 40
-
-    for (let i = 0; i < daysToFetch && games.length < 25; i++) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
-
-      try {
-        const url = `${NBA_API_BASE}/scoreboard/${dateStr}/scoreboard.json`
-        const res = await fetch(url, {
-          next: { revalidate: 3600 }, // Cache for 1 hour
-        })
-        if (!res.ok) continue
-
-        const json = await res.json()
-        const dayGames: NBAGame[] = json.scoreboard?.games || []
-
-        // Debug: log what we found
-        const teamGamesAny = dayGames.filter(g =>
-          (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId)
-        )
-        if (teamGamesAny.length > 0) {
-          console.log(`[getTeamSeasonStats] Date ${dateStr}: Found ${teamGamesAny.length} games for team, ${teamGamesAny.filter(g => g.gameStatus === 3).length} final, ${teamGamesAny.filter(g => g.homeTeam.statistics && g.awayTeam.statistics).length} with stats`)
-        }
-
-        const teamGames = dayGames.filter(g =>
-          g.gameStatus === 3 && // Final
-          (g.homeTeam.teamId === teamId || g.awayTeam.teamId === teamId) &&
-          g.homeTeam.statistics && g.awayTeam.statistics
-        )
-
-        if (teamGames.length > 0) {
-          games.push(...teamGames)
-          // Stop early if we have enough for accurate average
-          if (games.length >= 15) break
-        }
-      } catch (e) {
-        // Continue on error
-        continue
-      }
-    }
-
-    if (games.length === 0) {
-      console.log(`[getTeamSeasonStats] No completed games found for team ${teamId}`)
-      return null
-    }
-
-    console.log(`[getTeamSeasonStats] Calculating stats from ${games.length} games for team ${teamId}`)
-
-    let totalPPG = 0, totalPAPG = 0, totalFG = 0, totalFGA = 0
-    let total3P = 0, total3PA = 0, totalFT = 0, totalFTA = 0
-    let totalREB = 0, totalAST = 0, totalSTL = 0, totalBLK = 0, totalTOV = 0
-
-    games.forEach(g => {
-      const isHome = g.homeTeam.teamId === teamId
-      const team = isHome ? g.homeTeam : g.awayTeam
-      const opponent = isHome ? g.awayTeam : g.homeTeam
-      const stats = team.statistics!
-
-      totalPPG += team.score
-      totalPAPG += opponent.score
-      totalFG += stats.fieldGoalsMade
-      totalFGA += stats.fieldGoalsAttempted
-      total3P += stats.threePointersMade
-      total3PA += stats.threePointersAttempted
-      totalFT += stats.freeThrowsMade
-      totalFTA += stats.freeThrowsAttempted
-      totalREB += stats.reboundsTotal
-      totalAST += stats.assists
-      totalSTL += stats.steals
-      totalBLK += stats.blocks
-      totalTOV += stats.turnovers
-    })
-
-    const gameCount = games.length
-
-    const result = {
-      ppg: Math.round((totalPPG / gameCount) * 10) / 10,
-      papg: Math.round((totalPAPG / gameCount) * 10) / 10,
-      fgPct: Math.round((totalFG / totalFGA * 100) * 10) / 10,
-      fg3Pct: Math.round((total3P / total3PA * 100) * 10) / 10,
-      ftPct: Math.round((totalFT / totalFTA * 100) * 10) / 10,
-      rpg: Math.round((totalREB / gameCount) * 10) / 10,
-      apg: Math.round((totalAST / gameCount) * 10) / 10,
-      spg: Math.round((totalSTL / gameCount) * 10) / 10,
-      bpg: Math.round((totalBLK / gameCount) * 10) / 10,
-      tpg: Math.round((totalTOV / gameCount) * 10) / 10,
-    }
-
-    console.log(`[getTeamSeasonStats] Result for team ${teamId}:`, result)
-    return result
-  } catch (e) {
-    console.error('[getTeamSeasonStats] Error getting team season stats for team', teamId, ':', e)
-    return null
-  }
+  // Due to serverless timeout constraints, we cannot fetch historical game data
+  // Pre-game stats will use estimates; live games always show real-time stats
+  console.log(`[getTeamSeasonStats] Returning null for team ${teamId} - will use estimates for pre-game`)
+  return null
 }
 
 // Estimate team stats for pre-game preview based on win-loss record
