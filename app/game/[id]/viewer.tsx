@@ -528,8 +528,8 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-500 text-center italic">
                     {awayStats && homeStats
-                      ? '* Stats calculated from recent games. Live stats will be available when the game starts.'
-                      : '* Stats are estimated based on team records. Live stats will be available when the game starts.'}
+                      ? '✓ Current season stats from NBA data. Live game stats will appear when the game starts.'
+                      : '⚠ Estimated stats based on team records. Live game stats will appear when the game starts.'}
                   </p>
                 </div>
               </div>
