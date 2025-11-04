@@ -437,8 +437,11 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
       return null
     }
 
-    console.log(`[getTeamSeasonStats] Stats array length:`, stats.length)
-    console.log(`[getTeamSeasonStats] First 3 stat items:`, stats.slice(0, 3).map((s: any) => ({ name: s.name, abbr: s.abbreviation, value: s.value || s.displayValue })))
+    console.log(`[getTeamSeasonStats] Stats array has ${stats.length} items`)
+
+    // Log ALL stat names to see what's available
+    const allStatNames = stats.map((s: any) => s.name || s.abbreviation || s.displayName || 'unknown')
+    console.log(`[getTeamSeasonStats] All stat names:`, allStatNames.join(', '))
 
     // Helper to find stat by name
     const getStat = (name: string) => {
@@ -459,13 +462,15 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
       tpg: getStat('avgTurnovers') || getStat('TPG') || getStat('turnovers'),
     }
 
+    console.log(`[getTeamSeasonStats] Extracted values - ppg: ${result.ppg}, rpg: ${result.rpg}, apg: ${result.apg}`)
+
     // Validate we got real data
     if (result.ppg > 0) {
-      console.log(`[getTeamSeasonStats] Success! Got stats from ESPN for team ${teamId}:`, result)
+      console.log(`[getTeamSeasonStats] Success! Got stats from ESPN for team ${teamId}`)
       return result
     }
 
-    console.log(`[getTeamSeasonStats] ESPN data incomplete for team ${teamId}`)
+    console.log(`[getTeamSeasonStats] ESPN data incomplete (ppg=0) for team ${teamId}`)
     return null
   } catch (e) {
     console.error(`[getTeamSeasonStats] Error fetching from ESPN:`, e)
