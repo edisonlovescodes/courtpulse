@@ -383,8 +383,8 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
 
     console.log(`[getTeamSeasonStats] Fetching stats for NBA team ${teamId} (ESPN ID: ${espnTeamId})`)
 
-    // ESPN API provides season stats directly - single fast request
-    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${espnTeamId}/statistics`
+    // Try the main team endpoint which may include stats
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${espnTeamId}`
 
     const res = await fetch(url, {
       next: { revalidate: 3600 }, // Cache for 1 hour
@@ -398,27 +398,38 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
     const data = await res.json()
 
     // Log specific paths to find where stats are located
-    console.log(`[getTeamSeasonStats] ESPN response keys:`, Object.keys(data || {}))
-    console.log(`[getTeamSeasonStats] team keys:`, Object.keys(data?.team || {}))
-    console.log(`[getTeamSeasonStats] results type:`, Array.isArray(data?.results) ? `array[${data.results.length}]` : typeof data?.results)
+    console.log(`[getTeamSeasonStats] Top-level keys:`, Object.keys(data || {}).join(', '))
+
+    // Check if team.record or team.statistics exists
+    if (data?.team) {
+      console.log(`[getTeamSeasonStats] team keys:`, Object.keys(data.team).join(', '))
+
+      if (data.team.record) {
+        console.log(`[getTeamSeasonStats] team.record keys:`, Object.keys(data.team.record).join(', '))
+      }
+
+      if (data.team.statistics) {
+        console.log(`[getTeamSeasonStats] team.statistics exists, type:`, Array.isArray(data.team.statistics) ? `array[${data.team.statistics.length}]` : typeof data.team.statistics)
+      }
+    }
 
     // Try different paths to find the stats
     let stats = null
 
-    // Path 1: Check if stats are in splits.categories
-    if (data?.splits?.categories?.[0]?.stats) {
-      stats = data.splits.categories[0].stats
-      console.log(`[getTeamSeasonStats] Found stats in splits.categories path`)
+    // Path 1: Check team.statistics directly
+    if (data?.team?.statistics && Array.isArray(data.team.statistics)) {
+      stats = data.team.statistics
+      console.log(`[getTeamSeasonStats] Found stats in team.statistics (array of ${stats.length})`)
     }
-    // Path 2: Check if stats are directly in results
-    else if (Array.isArray(data?.results) && data.results[0]?.stats) {
-      stats = data.results[0].stats
-      console.log(`[getTeamSeasonStats] Found stats in results[0].stats path`)
-    }
-    // Path 3: Check team.record.items
+    // Path 2: Check team.record.items
     else if (data?.team?.record?.items?.[0]?.stats) {
       stats = data.team.record.items[0].stats
-      console.log(`[getTeamSeasonStats] Found stats in team.record.items path`)
+      console.log(`[getTeamSeasonStats] Found stats in team.record.items[0].stats`)
+    }
+    // Path 3: Check team.nextEvent statistics (sometimes stats are per-game)
+    else if (data?.team?.nextEvent?.statistics) {
+      stats = data.team.nextEvent.statistics
+      console.log(`[getTeamSeasonStats] Found stats in team.nextEvent.statistics`)
     }
 
     if (!stats || !Array.isArray(stats)) {
@@ -427,7 +438,7 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
     }
 
     console.log(`[getTeamSeasonStats] Stats array length:`, stats.length)
-    console.log(`[getTeamSeasonStats] First 3 stat names:`, stats.slice(0, 3).map((s: any) => s.name || s.abbreviation))
+    console.log(`[getTeamSeasonStats] First 3 stat items:`, stats.slice(0, 3).map((s: any) => ({ name: s.name, abbr: s.abbreviation, value: s.value || s.displayValue })))
 
     // Helper to find stat by name
     const getStat = (name: string) => {
