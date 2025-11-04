@@ -29,12 +29,12 @@ export async function processGameNotifications() {
         continue
       }
 
-      // Process each tracked game
+      // Process each tracked game (isolated per experience)
       for (const gameId of trackedGames) {
         try {
-          await processGameNotification(settings, channelIds, gameId, settings.sport)
+          await processGameNotification(settings, channelIds, gameId, settings.sport, settings.experienceId)
         } catch (e) {
-          console.error(`Error processing game ${gameId} for company ${settings.companyId}:`, e)
+          console.error(`Error processing game ${gameId} for company ${settings.companyId}, experience ${settings.experienceId}:`, e)
         }
       }
     }
@@ -44,11 +44,12 @@ export async function processGameNotifications() {
 }
 
 /**
- * Process notifications for a single game
+ * Process notifications for a single game (scoped to experience)
  */
 async function processGameNotification(
   settings: {
     companyId: string
+    experienceId: string
     updateFrequency: string
     notifyGameStart: boolean
     notifyGameEnd: boolean
@@ -57,7 +58,8 @@ async function processGameNotification(
   },
   channelIds: string[],
   gameId: string,
-  sport: string = 'nba'
+  sport: string = 'nba',
+  experienceId: string
 ) {
   if (channelIds.length === 0) return
 
@@ -89,11 +91,12 @@ async function processGameNotification(
   const status = formatGameStatus(game.gameStatus, game.gameStatusText)
   const isLive = game.gameStatus === 2
 
-  // Get or create notification state
+  // Get or create notification state (scoped to experience)
   let state = await prisma.gameNotificationState.findUnique({
     where: {
-      companyId_gameId_sport: {
+      companyId_experienceId_gameId_sport: {
         companyId: settings.companyId,
+        experienceId,
         gameId,
         sport,
       },
@@ -104,6 +107,7 @@ async function processGameNotification(
     state = await prisma.gameNotificationState.create({
       data: {
         companyId: settings.companyId,
+        experienceId,
         gameId,
         sport,
         lastHomeScore: 0,
@@ -158,8 +162,9 @@ async function processGameNotification(
   }
 
   const baseWhere = {
-    companyId_gameId_sport: {
+    companyId_experienceId_gameId_sport: {
       companyId: settings.companyId,
+      experienceId,
       gameId,
       sport,
     },
@@ -170,6 +175,7 @@ async function processGameNotification(
     const claim = await prisma.gameNotificationState.updateMany({
       where: {
         companyId: settings.companyId,
+        experienceId,
         gameId,
         sport,
         lastHomeScore: state.lastHomeScore,

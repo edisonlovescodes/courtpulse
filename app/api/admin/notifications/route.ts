@@ -4,8 +4,8 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/admin/notifications?company_id=xxx
- * Get notification settings for a company
+ * GET /api/admin/notifications?company_id=xxx&experience_id=xxx&sport=nba
+ * Get notification settings for a specific experience
  */
 export async function GET(req: Request) {
   try {
@@ -14,6 +14,7 @@ export async function GET(req: Request) {
       url.searchParams.get('company_id') ||
       process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ||
       ''
+    const experienceId = url.searchParams.get('experience_id') || ''
     const sport = url.searchParams.get('sport') || 'nba'
 
     if (!companyId) {
@@ -23,10 +24,18 @@ export async function GET(req: Request) {
       )
     }
 
+    if (!experienceId) {
+      return NextResponse.json(
+        { error: 'experience_id is required for multi-tenancy isolation' },
+        { status: 400 }
+      )
+    }
+
     let settings = await prisma.notificationSettings.findUnique({
       where: {
-        companyId_sport: {
+        companyId_experienceId_sport: {
           companyId,
+          experienceId,
           sport,
         }
       },
@@ -37,6 +46,7 @@ export async function GET(req: Request) {
       settings = await prisma.notificationSettings.create({
         data: {
           companyId,
+          experienceId,
           sport,
           enabled: false,
           updateFrequency: 'every_point',
@@ -70,7 +80,7 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/admin/notifications
- * Update notification settings for a company
+ * Update notification settings for a specific experience
  */
 export async function POST(req: Request) {
   try {
@@ -78,6 +88,7 @@ export async function POST(req: Request) {
     console.log('[/api/admin/notifications] request body:', body)
     const {
       companyId,
+      experienceId,
       sport,
       enabled,
       channelId,
@@ -97,10 +108,17 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!experienceId) {
+      return NextResponse.json(
+        { error: 'experienceId is required for multi-tenancy isolation' },
+        { status: 400 }
+      )
+    }
+
     const sportType = sport || 'nba'
 
-    // Trust the companyId from request body - client already validated access
-    console.log('[/api/admin/notifications] updating for company:', companyId, 'sport:', sportType)
+    // Trust the companyId and experienceId from request body - client already validated access
+    console.log('[/api/admin/notifications] updating for company:', companyId, 'experience:', experienceId, 'sport:', sportType)
 
     const channelIds = Array.isArray(inputChannelIds)
       ? inputChannelIds.map((id: any) => String(id).trim()).filter(Boolean)
@@ -114,13 +132,15 @@ export async function POST(req: Request) {
 
     const settings = await prisma.notificationSettings.upsert({
       where: {
-        companyId_sport: {
+        companyId_experienceId_sport: {
           companyId,
+          experienceId,
           sport: sportType,
         }
       },
       create: {
         companyId,
+        experienceId,
         sport: sportType,
         enabled: enabled ?? false,
         channelId: channelIdCsv,

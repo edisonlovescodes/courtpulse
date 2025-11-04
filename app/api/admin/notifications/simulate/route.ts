@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const {
       companyId,
+      experienceId,
       channelId: channelIdInput,
       eventType,
       homeTeam = 'Home',
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     } = body || {}
 
     const resolvedCompanyId = companyId || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
+    const resolvedExperienceId = experienceId || 'default_experience'
 
     if (!resolvedCompanyId) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 })
@@ -55,8 +57,9 @@ export async function POST(req: Request) {
     if (channelIds.length === 0) {
       const settings = await prisma.notificationSettings.findUnique({
         where: {
-          companyId_sport: {
+          companyId_experienceId_sport: {
             companyId: resolvedCompanyId,
+            experienceId: resolvedExperienceId,
             sport: 'nba'
           }
         }

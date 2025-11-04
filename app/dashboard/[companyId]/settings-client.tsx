@@ -97,26 +97,17 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
       const channelsData = await channelsRes.json()
       const allChannels = channelsData.channels || []
 
-      // Debug: Log channel structure to understand the data
-      console.log('[Settings Debug] All channels:', JSON.stringify(allChannels, null, 2))
+      // Show ALL channels for this community (companyId)
+      // Each experience can configure which channels to send notifications to
+      console.log('[Settings Debug] All channels for company:', allChannels.length)
       console.log('[Settings Debug] Current experienceId:', experienceId)
+      setChannels(allChannels)
 
-      // Filter channels by experienceId if provided
-      const filteredChannels = experienceId
-        ? allChannels.filter((ch: Channel) => {
-            console.log(`[Settings Debug] Comparing channel experience.id "${ch.experience?.id}" with experienceId "${experienceId}"`)
-            const matches = ch.experience?.id === experienceId
-            console.log(`[Settings Debug] Channel ${ch.id} (${ch.experience?.name}): ${matches ? 'MATCH' : 'NO MATCH'}`)
-            return matches
-          })
-        : allChannels
-
-      console.log('[Settings Debug] Filtered channels:', filteredChannels.length, 'of', allChannels.length)
-      console.log('[Settings Debug] Filtered channel IDs:', filteredChannels.map((ch: Channel) => `${ch.id} (${ch.experience?.name})`).join(', '))
-      setChannels(filteredChannels)
-
-      // Load NBA settings
-      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
+      // Load NBA settings (scoped to this experience)
+      if (!experienceId) {
+        throw new Error('experienceId is required for loading settings')
+      }
+      const settingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=nba`, {
         headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
       })
       if (!settingsRes.ok) throw new Error('Failed to load settings')
@@ -137,8 +128,8 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
       setNotifyQuarterEnd(s.notifyQuarterEnd)
       setTrackedGames(s.trackedGames || [])
 
-      // Load NFL tracked games
-      const nflSettingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
+      // Load NFL tracked games (scoped to this experience)
+      const nflSettingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=nfl`, {
         headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
       })
       if (nflSettingsRes.ok) {
@@ -176,16 +167,21 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
     setMessage('')
 
     try {
+      if (!experienceId) {
+        throw new Error('experienceId is required for saving settings')
+      }
+
       const channelName = selectedChannels.length
         ? channels.find(c => c.id === selectedChannels[0])?.experience.name || null
         : null
 
-      // Save NBA settings
+      // Save NBA settings (scoped to this experience)
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
         body: JSON.stringify({
           companyId,
+          experienceId,
           sport: 'nba',
           enabled,
           channelId: selectedChannels[0] || null,
@@ -201,12 +197,13 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
 
       if (!res.ok) throw new Error('Failed to save NBA settings')
 
-      // Save NFL settings (tracked games only)
+      // Save NFL settings (tracked games only, scoped to this experience)
       const nflRes = await fetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
         body: JSON.stringify({
           companyId,
+          experienceId,
           sport: 'nfl',
           enabled,
           channelId: selectedChannels[0] || null,

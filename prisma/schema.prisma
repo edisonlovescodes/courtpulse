@@ -39,10 +39,11 @@ model GameView {
   @@index([userId, gameId])
 }
 
-// Company notification settings
+// Company notification settings (scoped per experience)
 model NotificationSettings {
   id                   Int      @id @default(autoincrement())
   companyId            String
+  experienceId         String   @default("default_experience") // Whop experience ID for multi-tenancy isolation
   sport                String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   enabled              Boolean  @default(false)
   channelId            String?  // Whop chat channel ID
@@ -55,13 +56,15 @@ model NotificationSettings {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  @@unique([companyId, sport])
+  @@unique([companyId, experienceId, sport])
+  @@index([companyId, experienceId])
 }
 
-// Track last notification state per game to avoid duplicates
+// Track last notification state per game to avoid duplicates (scoped per experience)
 model GameNotificationState {
   id                Int      @id @default(autoincrement())
   companyId         String
+  experienceId      String   @default("default_experience") // Whop experience ID for multi-tenancy isolation
   gameId            String
   sport             String   @default("nba") // 'nba' | 'nfl' | 'mlb'
   lastHomeScore     Int      @default(0)
@@ -70,8 +73,8 @@ model GameNotificationState {
   lastStatus        String   @default("")
   lastNotifiedAt    DateTime @default(now())
 
-  @@unique([companyId, gameId, sport])
-  @@index([companyId])
+  @@unique([companyId, experienceId, gameId, sport])
+  @@index([companyId, experienceId])
 }
 
 // Test game sessions for replaying historical games
