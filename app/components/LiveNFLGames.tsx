@@ -143,7 +143,21 @@ export default function LiveNFLGames({ companyId: initialCompanyId, experienceId
   useEffect(() => {
     loadGames()
     const id = setInterval(loadGames, 10_000) // Refresh every 10 seconds
-    return () => clearInterval(id)
+
+    // Handle browser back/forward cache restoration
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored from bfcache, reload games
+        loadGames()
+      }
+    }
+
+    window.addEventListener('pageshow', handlePageShow)
+
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('pageshow', handlePageShow)
+    }
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {

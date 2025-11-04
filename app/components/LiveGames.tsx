@@ -141,7 +141,21 @@ export default function LiveGames({ companyId: initialCompanyId, experienceId, i
   useEffect(() => {
     loadGames()
     const id = setInterval(loadGames, 10_000)
-    return () => clearInterval(id)
+
+    // Handle browser back/forward cache restoration
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored from bfcache, reload games
+        loadGames()
+      }
+    }
+
+    window.addEventListener('pageshow', handlePageShow)
+
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('pageshow', handlePageShow)
+    }
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
