@@ -90,6 +90,10 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
 
     try {
       // Load channels
+      console.log('[Settings Debug] === CHANNEL LOADING ===')
+      console.log('[Settings Debug] Company ID:', companyId)
+      console.log('[Settings Debug] Current experienceId:', experienceId)
+
       const channelsRes = await fetch(`/api/admin/channels?company_id=${companyId}` , {
         headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
       })
@@ -99,7 +103,11 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
 
       // Filter to show ONLY channels that belong to this experience
       console.log('[Settings Debug] All channels for company:', allChannels.length)
-      console.log('[Settings Debug] Current experienceId:', experienceId)
+      console.log('[Settings Debug] ALL CHANNELS RAW:', JSON.stringify(allChannels.map((ch: any) => ({
+        id: ch.id,
+        experienceId: ch.experience?.id,
+        experienceName: ch.experience?.name
+      })), null, 2))
 
       const filteredChannels = experienceId
         ? allChannels.filter((ch: Channel) => ch.experience?.id === experienceId)
