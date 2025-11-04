@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 type AdminCogProps = {
   initialCompanyId?: string | null
@@ -8,16 +9,48 @@ type AdminCogProps = {
 }
 
 export default function AdminCog({ initialCompanyId, initialExperienceId }: AdminCogProps) {
+  const [experienceId, setExperienceId] = useState<string | null>(initialExperienceId ?? null)
+
+  useEffect(() => {
+    // Try to extract experience ID from parent iframe URL (Whop context)
+    if (!experienceId && typeof window !== 'undefined') {
+      try {
+        // Check if we're in an iframe and can access parent
+        if (window.parent && window.parent !== window) {
+          const parentUrl = window.parent.location.href
+          const match = parentUrl.match(/\/((?:exp|xp)_[A-Za-z0-9]+)/)
+          if (match) {
+            setExperienceId(match[1])
+            return
+          }
+        }
+      } catch (e) {
+        // Cross-origin, can't access parent URL
+      }
+
+      // Try to extract from current URL
+      const match = window.location.pathname.match(/\/((?:exp|xp)_[A-Za-z0-9]+)/)
+      if (match) {
+        setExperienceId(match[1])
+      }
+    }
+  }, [experienceId])
+
   const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || ''
   const companyId = initialCompanyId ?? fallbackCompanyId
 
   // If experienceId is available, link to /experiences/[experienceId]/settings
   // Otherwise fall back to /dashboard/[companyId]
-  const href = initialExperienceId
-    ? `/experiences/${initialExperienceId}/settings`
+  const href = experienceId
+    ? `/experiences/${experienceId}/settings`
     : companyId
       ? `/dashboard/${companyId}`
       : '/dashboard'
+
+  // Debug: Log what URL AdminCog will navigate to
+  console.log('[AdminCog] experienceId:', experienceId)
+  console.log('[AdminCog] companyId:', companyId)
+  console.log('[AdminCog] Settings link href:', href)
 
   return (
     <Link
