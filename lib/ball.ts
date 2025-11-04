@@ -335,14 +335,63 @@ export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
 
-// Get current season stats for a team
-// For pre-game use, returns estimated stats based on record
-// Live game stats are always accurate and pulled from game data
+// Get current season stats for a team using ESPN's aggregated stats API
+// ESPN provides season averages directly - much faster than calculating from games
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
-  // Due to serverless timeout constraints, we cannot fetch historical game data
-  // Pre-game stats will use estimates; live games always show real-time stats
-  console.log(`[getTeamSeasonStats] Returning null for team ${teamId} - will use estimates for pre-game`)
-  return null
+  try {
+    console.log(`[getTeamSeasonStats] Fetching stats for team ${teamId} from ESPN`)
+
+    // ESPN API provides season stats directly - single fast request
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/statistics`
+
+    const res = await fetch(url, {
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    })
+
+    if (!res.ok) {
+      console.log(`[getTeamSeasonStats] ESPN API returned ${res.status}`)
+      return null
+    }
+
+    const data = await res.json()
+    const stats = data?.team?.record?.items?.[0]?.stats || data?.splits?.categories?.[0]?.stats
+
+    if (!stats || !Array.isArray(stats)) {
+      console.log(`[getTeamSeasonStats] No stats found in ESPN response`)
+      return null
+    }
+
+    // Helper to find stat by name
+    const getStat = (name: string) => {
+      const stat = stats.find((s: any) => s.name === name || s.abbreviation === name)
+      return stat ? parseFloat(stat.value || stat.displayValue || 0) : 0
+    }
+
+    const result = {
+      ppg: getStat('avgPoints') || getStat('PPG') || getStat('points'),
+      papg: getStat('avgPointsAgainst') || getStat('oppPoints') || 0,
+      fgPct: getStat('fieldGoalPct') || getStat('FG%') || 0,
+      fg3Pct: getStat('threePointFieldGoalPct') || getStat('3P%') || 0,
+      ftPct: getStat('freeThrowPct') || getStat('FT%') || 0,
+      rpg: getStat('avgRebounds') || getStat('RPG') || getStat('rebounds'),
+      apg: getStat('avgAssists') || getStat('APG') || getStat('assists'),
+      spg: getStat('avgSteals') || getStat('SPG') || getStat('steals'),
+      bpg: getStat('avgBlocks') || getStat('BPG') || getStat('blocks'),
+      tpg: getStat('avgTurnovers') || getStat('TPG') || getStat('turnovers'),
+    }
+
+    // Validate we got real data
+    if (result.ppg > 0) {
+      console.log(`[getTeamSeasonStats] Success! Got stats from ESPN for team ${teamId}:`, result)
+      return result
+    }
+
+    console.log(`[getTeamSeasonStats] ESPN data incomplete for team ${teamId}`)
+    return null
+  } catch (e) {
+    console.error(`[getTeamSeasonStats] Error fetching from ESPN:`, e)
+    return null
+  }
 }
 
 // Estimate team stats for pre-game preview based on win-loss record
