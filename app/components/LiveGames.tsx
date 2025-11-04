@@ -23,6 +23,7 @@ type Game = {
 
 type LiveGamesProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 
@@ -101,7 +102,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveGames({ companyId: initialCompanyId, isAdmin }: LiveGamesProps = {}) {
+export default function LiveGames({ companyId: initialCompanyId, experienceId, isAdmin }: LiveGamesProps = {}) {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -144,11 +145,11 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
-    if (!companyId) return
+    if (!companyId || !experienceId) return
     setNotifLoading(true)
     setNotifError(null)
     try {
-      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
+      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=nba`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -170,7 +171,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
     } finally {
       setNotifLoading(false)
     }
-  }, [companyId])
+  }, [companyId, experienceId])
 
   useEffect(() => {
     if (!companyId) {
@@ -213,6 +214,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
+          experienceId,
           sport: 'nba',
           enabled: notifSettings.enabled,
           channelIds: notifSettings.channelIds,

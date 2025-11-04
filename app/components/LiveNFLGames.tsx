@@ -31,6 +31,7 @@ type NFLGame = {
 
 type LiveNFLGamesProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 
@@ -104,7 +105,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: LiveNFLGamesProps = {}) {
+export default function LiveNFLGames({ companyId: initialCompanyId, experienceId, isAdmin }: LiveNFLGamesProps = {}) {
   const [games, setGames] = useState<NFLGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -146,12 +147,12 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
-    if (!companyId) return
+    if (!companyId || !experienceId) return
     setNotifLoading(true)
     setNotifError(null)
     try {
       // Load NBA settings for channel configuration
-      const nbaRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nba`, {
+      const nbaRes = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=nba`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -169,7 +170,7 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
       const nbaSettings = normaliseSettings(nbaData.settings)
 
       // Load NFL tracked games
-      const nflRes = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=nfl`, {
+      const nflRes = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=nfl`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -195,7 +196,7 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
     } finally {
       setNotifLoading(false)
     }
-  }, [companyId])
+  }, [companyId, experienceId])
 
   useEffect(() => {
     if (!companyId) {
@@ -239,6 +240,7 @@ export default function LiveNFLGames({ companyId: initialCompanyId, isAdmin }: L
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
+          experienceId,
           sport: 'nfl',
           enabled: notifSettings.enabled,
           channelIds: notifSettings.channelIds,

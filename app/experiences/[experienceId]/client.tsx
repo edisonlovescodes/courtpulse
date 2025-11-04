@@ -7,10 +7,11 @@ type Sport = 'nba' | 'nfl'
 
 type ExperienceClientProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 
-export default function ExperienceClient({ companyId, isAdmin }: ExperienceClientProps) {
+export default function ExperienceClient({ companyId, experienceId, isAdmin }: ExperienceClientProps) {
   const [activeSport, setActiveSport] = useState<Sport>('nba')
 
   return (
@@ -54,10 +55,10 @@ export default function ExperienceClient({ companyId, isAdmin }: ExperienceClien
       </div>
 
       {activeSport === 'nba' && (
-        <LiveGames companyId={companyId} isAdmin={isAdmin} />
+        <LiveGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
       )}
       {activeSport === 'nfl' && (
-        <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+        <LiveNFLGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
       )}
     </main>
   )
