@@ -101,6 +101,15 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
       // Each experience can configure which channels to send notifications to
       console.log('[Settings Debug] All channels for company:', allChannels.length)
       console.log('[Settings Debug] Current experienceId:', experienceId)
+      console.log('[Settings Debug] Channel details:')
+      allChannels.forEach((ch: Channel, idx: number) => {
+        console.log(`  Channel ${idx + 1}:`, {
+          id: ch.id,
+          experienceId: ch.experience?.id,
+          experienceName: ch.experience?.name,
+          belongsToCurrentExperience: ch.experience?.id === experienceId
+        })
+      })
       setChannels(allChannels)
 
       // Load NBA settings (scoped to this experience)
