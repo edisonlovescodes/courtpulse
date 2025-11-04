@@ -36,6 +36,9 @@ type CreateMessageResponse = {
 
 /**
  * List all chat channels for a company
+ *
+ * IMPORTANT: This requires the WHOP_API_KEY to have access to the specified company.
+ * For multi-tenant apps, the API key must be from an app that's installed in the company.
  */
 export async function listChatChannels(companyId: string): Promise<ChatChannel[]> {
   const apiKey = process.env.WHOP_API_KEY
@@ -48,6 +51,7 @@ export async function listChatChannels(companyId: string): Promise<ChatChannel[]
 
   console.log('[Whop API] Fetching channels:', url.toString())
   console.log('[Whop API] Company ID:', companyId)
+  console.log('[Whop API] Using API Key:', apiKey.substring(0, 10) + '...')
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -59,6 +63,7 @@ export async function listChatChannels(companyId: string): Promise<ChatChannel[]
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: 'Unknown error' }))
     console.error('[Whop API] Error response:', error)
+    console.error('[Whop API] Status:', res.status, res.statusText)
     throw new Error(`Whop API error: ${error.message || res.statusText}`)
   }
 
