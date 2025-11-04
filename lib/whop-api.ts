@@ -46,6 +46,9 @@ export async function listChatChannels(companyId: string): Promise<ChatChannel[]
   const url = new URL(`${WHOP_API_BASE}/chat_channels`)
   url.searchParams.set('company_id', companyId)
 
+  console.log('[Whop API] Fetching channels:', url.toString())
+  console.log('[Whop API] Company ID:', companyId)
+
   const res = await fetch(url.toString(), {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -55,10 +58,22 @@ export async function listChatChannels(companyId: string): Promise<ChatChannel[]
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: 'Unknown error' }))
+    console.error('[Whop API] Error response:', error)
     throw new Error(`Whop API error: ${error.message || res.statusText}`)
   }
 
   const data: ListChannelsResponse = await res.json()
+  console.log('[Whop API] Raw response:', JSON.stringify(data, null, 2))
+  console.log('[Whop API] Channels returned:', data.data?.length || 0)
+
+  data.data?.forEach((ch, idx) => {
+    console.log(`[Whop API] Channel ${idx + 1}:`, {
+      id: ch.id,
+      experienceId: ch.experience?.id,
+      experienceName: ch.experience?.name
+    })
+  })
+
   return data.data
 }
 
