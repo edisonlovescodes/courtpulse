@@ -397,17 +397,37 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
 
     const data = await res.json()
 
-    // Log the actual ESPN response structure to understand where stats are located
-    console.log(`[getTeamSeasonStats] ESPN response structure for team ${espnTeamId}:`)
-    console.log(JSON.stringify(data, null, 2))
+    // Log specific paths to find where stats are located
+    console.log(`[getTeamSeasonStats] ESPN response keys:`, Object.keys(data || {}))
+    console.log(`[getTeamSeasonStats] team keys:`, Object.keys(data?.team || {}))
+    console.log(`[getTeamSeasonStats] results type:`, Array.isArray(data?.results) ? `array[${data.results.length}]` : typeof data?.results)
 
-    const stats = data?.team?.record?.items?.[0]?.stats || data?.splits?.categories?.[0]?.stats
+    // Try different paths to find the stats
+    let stats = null
+
+    // Path 1: Check if stats are in splits.categories
+    if (data?.splits?.categories?.[0]?.stats) {
+      stats = data.splits.categories[0].stats
+      console.log(`[getTeamSeasonStats] Found stats in splits.categories path`)
+    }
+    // Path 2: Check if stats are directly in results
+    else if (Array.isArray(data?.results) && data.results[0]?.stats) {
+      stats = data.results[0].stats
+      console.log(`[getTeamSeasonStats] Found stats in results[0].stats path`)
+    }
+    // Path 3: Check team.record.items
+    else if (data?.team?.record?.items?.[0]?.stats) {
+      stats = data.team.record.items[0].stats
+      console.log(`[getTeamSeasonStats] Found stats in team.record.items path`)
+    }
 
     if (!stats || !Array.isArray(stats)) {
-      console.log(`[getTeamSeasonStats] No stats found in ESPN response for team ${espnTeamId}`)
-      console.log(`[getTeamSeasonStats] Available keys:`, Object.keys(data || {}))
+      console.log(`[getTeamSeasonStats] No stats array found for team ${espnTeamId}`)
       return null
     }
+
+    console.log(`[getTeamSeasonStats] Stats array length:`, stats.length)
+    console.log(`[getTeamSeasonStats] First 3 stat names:`, stats.slice(0, 3).map((s: any) => s.name || s.abbreviation))
 
     // Helper to find stat by name
     const getStat = (name: string) => {
