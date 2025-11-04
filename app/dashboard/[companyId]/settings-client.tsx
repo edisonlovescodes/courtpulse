@@ -146,11 +146,11 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
         experienceName: ch.experience?.name
       })), null, 2))
 
-      const filteredChannels = experienceId
-        ? allChannels.filter((ch: Channel) => ch.experience?.id === experienceId)
-        : allChannels
+      // CHANGED: Show ALL channels from this company, not just current experience
+      // This allows admins to configure notifications for any channel they own
+      const filteredChannels = allChannels
 
-      console.log('[Settings Debug] Filtered channels:', filteredChannels.length, 'out of', allChannels.length)
+      console.log('[Settings Debug] Showing all company channels:', filteredChannels.length)
       console.log('[Settings Debug] Channel details:')
       filteredChannels.forEach((ch: Channel, idx: number) => {
         console.log(`  Channel ${idx + 1}:`, {
