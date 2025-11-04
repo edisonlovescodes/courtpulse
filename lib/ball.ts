@@ -335,21 +335,63 @@ export function isLiveStatus(status: string): boolean {
   return status.toLowerCase() === 'live'
 }
 
+// Map NBA team IDs to ESPN team IDs
+// ESPN uses simpler numeric IDs, NBA uses 10-digit IDs
+const NBA_TO_ESPN_TEAM_ID: Record<number, number> = {
+  1610612737: 1,   // Atlanta Hawks
+  1610612738: 2,   // Boston Celtics
+  1610612751: 17,  // Brooklyn Nets
+  1610612766: 30,  // Charlotte Hornets
+  1610612741: 4,   // Chicago Bulls
+  1610612739: 5,   // Cleveland Cavaliers
+  1610612742: 6,   // Dallas Mavericks
+  1610612743: 7,   // Denver Nuggets
+  1610612765: 8,   // Detroit Pistons
+  1610612744: 9,   // Golden State Warriors
+  1610612745: 10,  // Houston Rockets
+  1610612754: 11,  // Indiana Pacers
+  1610612746: 12,  // LA Clippers
+  1610612747: 13,  // Los Angeles Lakers
+  1610612763: 29,  // Memphis Grizzlies
+  1610612748: 14,  // Miami Heat
+  1610612749: 15,  // Milwaukee Bucks
+  1610612750: 16,  // Minnesota Timberwolves
+  1610612740: 3,   // New Orleans Pelicans
+  1610612752: 18,  // New York Knicks
+  1610612760: 25,  // Oklahoma City Thunder
+  1610612753: 19,  // Orlando Magic
+  1610612755: 20,  // Philadelphia 76ers
+  1610612756: 21,  // Phoenix Suns
+  1610612757: 22,  // Portland Trail Blazers
+  1610612758: 23,  // Sacramento Kings
+  1610612759: 24,  // San Antonio Spurs
+  1610612761: 28,  // Toronto Raptors
+  1610612762: 26,  // Utah Jazz
+  1610612764: 27,  // Washington Wizards
+}
+
 // Get current season stats for a team using ESPN's aggregated stats API
 // ESPN provides season averages directly - much faster than calculating from games
 export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamStats | null> {
   try {
-    console.log(`[getTeamSeasonStats] Fetching stats for team ${teamId} from ESPN`)
+    // Map NBA team ID to ESPN team ID
+    const espnTeamId = NBA_TO_ESPN_TEAM_ID[teamId]
+    if (!espnTeamId) {
+      console.log(`[getTeamSeasonStats] No ESPN mapping for NBA team ID ${teamId}`)
+      return null
+    }
+
+    console.log(`[getTeamSeasonStats] Fetching stats for NBA team ${teamId} (ESPN ID: ${espnTeamId})`)
 
     // ESPN API provides season stats directly - single fast request
-    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/statistics`
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${espnTeamId}/statistics`
 
     const res = await fetch(url, {
       next: { revalidate: 3600 }, // Cache for 1 hour
     })
 
     if (!res.ok) {
-      console.log(`[getTeamSeasonStats] ESPN API returned ${res.status}`)
+      console.log(`[getTeamSeasonStats] ESPN API returned ${res.status} for ESPN ID ${espnTeamId}`)
       return null
     }
 
@@ -357,7 +399,7 @@ export async function getTeamSeasonStats(teamId: number): Promise<EstimatedTeamS
     const stats = data?.team?.record?.items?.[0]?.stats || data?.splits?.categories?.[0]?.stats
 
     if (!stats || !Array.isArray(stats)) {
-      console.log(`[getTeamSeasonStats] No stats found in ESPN response`)
+      console.log(`[getTeamSeasonStats] No stats found in ESPN response for team ${espnTeamId}`)
       return null
     }
 
