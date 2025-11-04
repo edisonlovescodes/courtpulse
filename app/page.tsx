@@ -10,6 +10,7 @@ export default function HomePage() {
   const [activeSport, setActiveSport] = useState<Sport>('nba')
 
   const companyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ?? undefined
+  const experienceId = process.env.NEXT_PUBLIC_WHOP_EXPERIENCE_ID ?? undefined
   const isAdmin = true
 
   return (
@@ -54,11 +55,11 @@ export default function HomePage() {
         </div>
 
         {activeSport === 'nba' && (
-          <LiveGames companyId={companyId} isAdmin={isAdmin} />
+          <LiveGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
         )}
         {activeSport === 'nfl' && (
           <Suspense fallback={<div className="text-center py-8 text-gray-500">Loading...</div>}>
-            <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+            <LiveNFLGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
           </Suspense>
         )}
       </main>
