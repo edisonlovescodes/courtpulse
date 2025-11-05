@@ -59,16 +59,15 @@ export async function GET(req: Request, { params }: any) {
       }
     })
   } catch (e: any) {
-    console.error('Error fetching game:', gameId, e)
-
-    // For scheduled games that haven't started, try to get basic info from today's games
+    // For scheduled games that haven't started, boxscore data isn't available yet
+    // Try to get basic info from today's games schedule instead
     try {
       const { getTodayGames } = await import('@/lib/ball')
       const todayGames = await getTodayGames()
       const scheduledGame = todayGames.find(g => g.id === gameId)
 
       if (scheduledGame) {
-        // Return pre-game data
+        // Successfully found scheduled game - return pre-game data
         return NextResponse.json({
           id: scheduledGame.id,
           homeTeam: scheduledGame.homeTeam,
@@ -93,7 +92,8 @@ export async function GET(req: Request, { params }: any) {
       console.error('Error fetching pre-game data:', preGameError)
     }
 
-    // If we can't get pre-game data, return error
+    // If we can't get pre-game data either, log and return error
+    console.error('Game not found in boxscore or schedule:', gameId, e.message)
     return NextResponse.json({
       error: 'Game data not available.',
       gameId,

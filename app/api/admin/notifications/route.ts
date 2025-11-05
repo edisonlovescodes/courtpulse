@@ -14,21 +14,32 @@ export async function GET(req: Request) {
       url.searchParams.get('company_id') ||
       process.env.NEXT_PUBLIC_WHOP_COMPANY_ID ||
       ''
-    const experienceId = url.searchParams.get('experience_id') || ''
+    const experienceId = url.searchParams.get('experience_id')?.trim() || ''
     const sport = url.searchParams.get('sport') || 'nba'
 
-    if (!companyId) {
+    if (!companyId || !companyId.trim()) {
       return NextResponse.json(
         { error: 'company_id is required' },
         { status: 400 }
       )
     }
 
-    if (!experienceId) {
-      return NextResponse.json(
-        { error: 'experience_id is required for multi-tenancy isolation' },
-        { status: 400 }
-      )
+    // If experienceId is missing, return empty/default settings instead of error
+    // This allows the UI to render without errors when experience context isn't available
+    if (!experienceId || experienceId === 'undefined' || experienceId === 'null') {
+      return NextResponse.json({
+        settings: {
+          enabled: false,
+          channelId: null,
+          channelIds: [],
+          channelName: null,
+          updateFrequency: 'every_point',
+          notifyGameStart: true,
+          notifyGameEnd: true,
+          notifyQuarterEnd: true,
+          trackedGames: [],
+        }
+      })
     }
 
     let settings = await prisma.notificationSettings.findUnique({
