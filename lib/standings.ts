@@ -35,6 +35,40 @@ const WESTERN_CONFERENCE_TEAMS = [
   1610612759, // San Antonio Spurs
 ]
 
+// Static team data for when API doesn't provide all teams
+export const ALL_NBA_TEAMS = [
+  { teamId: 1610612738, teamCity: 'Boston', teamName: 'Celtics', teamTricode: 'BOS' },
+  { teamId: 1610612751, teamCity: 'Brooklyn', teamName: 'Nets', teamTricode: 'BKN' },
+  { teamId: 1610612752, teamCity: 'New York', teamName: 'Knicks', teamTricode: 'NYK' },
+  { teamId: 1610612755, teamCity: 'Philadelphia', teamName: '76ers', teamTricode: 'PHI' },
+  { teamId: 1610612761, teamCity: 'Toronto', teamName: 'Raptors', teamTricode: 'TOR' },
+  { teamId: 1610612741, teamCity: 'Chicago', teamName: 'Bulls', teamTricode: 'CHI' },
+  { teamId: 1610612739, teamCity: 'Cleveland', teamName: 'Cavaliers', teamTricode: 'CLE' },
+  { teamId: 1610612765, teamCity: 'Detroit', teamName: 'Pistons', teamTricode: 'DET' },
+  { teamId: 1610612754, teamCity: 'Indiana', teamName: 'Pacers', teamTricode: 'IND' },
+  { teamId: 1610612749, teamCity: 'Milwaukee', teamName: 'Bucks', teamTricode: 'MIL' },
+  { teamId: 1610612737, teamCity: 'Atlanta', teamName: 'Hawks', teamTricode: 'ATL' },
+  { teamId: 1610612766, teamCity: 'Charlotte', teamName: 'Hornets', teamTricode: 'CHA' },
+  { teamId: 1610612748, teamCity: 'Miami', teamName: 'Heat', teamTricode: 'MIA' },
+  { teamId: 1610612753, teamCity: 'Orlando', teamName: 'Magic', teamTricode: 'ORL' },
+  { teamId: 1610612764, teamCity: 'Washington', teamName: 'Wizards', teamTricode: 'WAS' },
+  { teamId: 1610612743, teamCity: 'Denver', teamName: 'Nuggets', teamTricode: 'DEN' },
+  { teamId: 1610612750, teamCity: 'Minnesota', teamName: 'Timberwolves', teamTricode: 'MIN' },
+  { teamId: 1610612760, teamCity: 'Oklahoma City', teamName: 'Thunder', teamTricode: 'OKC' },
+  { teamId: 1610612757, teamCity: 'Portland', teamName: 'Trail Blazers', teamTricode: 'POR' },
+  { teamId: 1610612762, teamCity: 'Utah', teamName: 'Jazz', teamTricode: 'UTA' },
+  { teamId: 1610612744, teamCity: 'Golden State', teamName: 'Warriors', teamTricode: 'GSW' },
+  { teamId: 1610612746, teamCity: 'LA', teamName: 'Clippers', teamTricode: 'LAC' },
+  { teamId: 1610612747, teamCity: 'Los Angeles', teamName: 'Lakers', teamTricode: 'LAL' },
+  { teamId: 1610612756, teamCity: 'Phoenix', teamName: 'Suns', teamTricode: 'PHX' },
+  { teamId: 1610612758, teamCity: 'Sacramento', teamName: 'Kings', teamTricode: 'SAC' },
+  { teamId: 1610612742, teamCity: 'Dallas', teamName: 'Mavericks', teamTricode: 'DAL' },
+  { teamId: 1610612745, teamCity: 'Houston', teamName: 'Rockets', teamTricode: 'HOU' },
+  { teamId: 1610612763, teamCity: 'Memphis', teamName: 'Grizzlies', teamTricode: 'MEM' },
+  { teamId: 1610612740, teamCity: 'New Orleans', teamName: 'Pelicans', teamTricode: 'NOP' },
+  { teamId: 1610612759, teamCity: 'San Antonio', teamName: 'Spurs', teamTricode: 'SAS' },
+]
+
 export type TeamStanding = {
   teamId: number
   teamName: string

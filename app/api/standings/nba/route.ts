@@ -1,77 +1,68 @@
 import { NextResponse } from 'next/server'
-import { getConference, calculateWinPercentage, sortStandings, addGamesBack, type TeamStanding } from '@/lib/standings'
+import { getConference, calculateWinPercentage, sortStandings, addGamesBack, ALL_NBA_TEAMS, type TeamStanding } from '@/lib/standings'
 
 export const dynamic = 'force-dynamic'
 
-// Fetch NBA scoreboard data for a given date
-async function fetchScoreboardForDate(dateStr: string) {
+export async function GET() {
   try {
+    // Fetch today's scoreboard to get current team records
     const response = await fetch(
       `https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json`,
       { next: { revalidate: 300 } } // Cache for 5 minutes
     )
-    if (!response.ok) return []
-    const data = await response.json()
-    return data.scoreboard?.games || []
-  } catch (e) {
-    console.error(`Failed to fetch scoreboard for ${dateStr}:`, e)
-    return []
-  }
-}
 
-export async function GET() {
-  try {
-    // Fetch scoreboard data for the past 7 days to capture all teams
-    const today = new Date()
-    const dates: string[] = []
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-      dates.push(date.toISOString().split('T')[0])
+    if (!response.ok) {
+      throw new Error(`NBA API error: ${response.status}`)
     }
 
-    // Fetch all scoreboards
-    const allGamesPromises = dates.map(date => fetchScoreboardForDate(date))
-    const allGamesArrays = await Promise.all(allGamesPromises)
-    const allGames = allGamesArrays.flat()
+    const data = await response.json()
+    const games = data.scoreboard?.games || []
 
-    // Build a map of teams with their records
+    // Initialize all teams with default 0-0 records
     const teamsMap = new Map<number, TeamStanding>()
+    ALL_NBA_TEAMS.forEach(team => {
+      teamsMap.set(team.teamId, {
+        teamId: team.teamId,
+        teamName: team.teamName,
+        teamCity: team.teamCity,
+        teamTricode: team.teamTricode,
+        wins: 0,
+        losses: 0,
+        winPct: 0,
+        conference: getConference(team.teamId),
+      })
+    })
 
-    allGames.forEach((game: any) => {
-      // Add home team
+    // Update with actual records from today's games
+    games.forEach((game: any) => {
+      // Update home team
       const homeTeam = game.homeTeam
       if (homeTeam?.teamId && homeTeam.wins !== undefined && homeTeam.losses !== undefined) {
-        if (!teamsMap.has(homeTeam.teamId)) {
-          teamsMap.set(homeTeam.teamId, {
-            teamId: homeTeam.teamId,
-            teamName: homeTeam.teamName || '',
-            teamCity: homeTeam.teamCity || '',
-            teamTricode: homeTeam.teamTricode || '',
-            wins: homeTeam.wins,
-            losses: homeTeam.losses,
-            winPct: calculateWinPercentage(homeTeam.wins, homeTeam.losses),
-            conference: getConference(homeTeam.teamId),
-          })
-        }
+        teamsMap.set(homeTeam.teamId, {
+          teamId: homeTeam.teamId,
+          teamName: homeTeam.teamName || '',
+          teamCity: homeTeam.teamCity || '',
+          teamTricode: homeTeam.teamTricode || '',
+          wins: homeTeam.wins,
+          losses: homeTeam.losses,
+          winPct: calculateWinPercentage(homeTeam.wins, homeTeam.losses),
+          conference: getConference(homeTeam.teamId),
+        })
       }
 
-      // Add away team
+      // Update away team
       const awayTeam = game.awayTeam
       if (awayTeam?.teamId && awayTeam.wins !== undefined && awayTeam.losses !== undefined) {
-        if (!teamsMap.has(awayTeam.teamId)) {
-          teamsMap.set(awayTeam.teamId, {
-            teamId: awayTeam.teamId,
-            teamName: awayTeam.teamName || '',
-            teamCity: awayTeam.teamCity || '',
-            teamTricode: awayTeam.teamTricode || '',
-            wins: awayTeam.wins,
-            losses: awayTeam.losses,
-            winPct: calculateWinPercentage(awayTeam.wins, awayTeam.losses),
-            conference: getConference(awayTeam.teamId),
-          })
-        }
+        teamsMap.set(awayTeam.teamId, {
+          teamId: awayTeam.teamId,
+          teamName: awayTeam.teamName || '',
+          teamCity: awayTeam.teamCity || '',
+          teamTricode: awayTeam.teamTricode || '',
+          wins: awayTeam.wins,
+          losses: awayTeam.losses,
+          winPct: calculateWinPercentage(awayTeam.wins, awayTeam.losses),
+          conference: getConference(awayTeam.teamId),
+        })
       }
     })
 
