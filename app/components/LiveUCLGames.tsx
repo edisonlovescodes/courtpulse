@@ -132,22 +132,55 @@ export default function LiveUCLGames({ companyId: initialCompanyId, experienceId
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
-    if (!companyId || !experienceId) return
+    if (!companyId) return
     setNotifLoading(true)
     setNotifError(null)
 
     try {
-      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=ucl`, {
+      const expParam = experienceId ? `&experience_id=${experienceId}` : ''
+      // Load NBA settings for channel configuration
+      const nbaRes = await fetch(`/api/admin/notifications?company_id=${companyId}${expParam}&sport=nba`, {
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
       })
-      if (!res.ok) {
-        throw new Error('Failed to load notification settings')
+      if (!nbaRes.ok) {
+        if (nbaRes.status === 403) {
+          setNotifSettings(null)
+          return
+        }
+        throw new Error(`Failed (${nbaRes.status})`)
       }
-      const data = await res.json()
-      setNotifSettings(normaliseSettings(data.settings))
+      const nbaData = await nbaRes.json()
+      const nbaSettings = normaliseSettings(nbaData.settings)
+
+      // Load UCL tracked games
+      const uclRes = await fetch(`/api/admin/notifications?company_id=${companyId}${expParam}&sport=ucl`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      })
+      const uclData = uclRes.ok ? await uclRes.json() : null
+      const uclTrackedGames = uclData?.settings?.trackedGames || []
+
+      // Combine: use NBA settings but with UCL tracked games
+      setNotifSettings({
+        ...nbaSettings,
+        sport: 'ucl',
+        trackedGames: Array.isArray(uclTrackedGames)
+          ? uclTrackedGames
+          : typeof uclTrackedGames === 'string'
+            ? uclTrackedGames.split(',').filter(Boolean)
+            : []
+      })
     } catch (e: any) {
       console.error('Failed to load notification settings:', e)
       setNotifError(e.message || 'Failed to load notification settings')
+      setNotifSettings(null)
     } finally {
       setNotifLoading(false)
     }
@@ -163,8 +196,8 @@ export default function LiveUCLGames({ companyId: initialCompanyId, experienceId
   }, [companyId, loadNotifications])
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
-    if (!companyId || !experienceId) {
-      setNotifError('Company or experience context missing. Please refresh the page.')
+    if (!companyId) {
+      setNotifError('Company context missing. Please refresh the page.')
       return
     }
 
@@ -188,23 +221,27 @@ export default function LiveUCLGames({ companyId: initialCompanyId, experienceId
     setNotifError(null)
 
     try {
+      const payload: any = {
+        companyId,
+        sport: 'ucl',
+        enabled: notifSettings.enabled,
+        channelIds: notifSettings.channelIds,
+        channelId: notifSettings.channelIds[0] ?? null,
+        channelName: notifSettings.channelName,
+        updateFrequency: notifSettings.updateFrequency,
+        notifyGameStart: notifSettings.notifyGameStart,
+        notifyGameEnd: notifSettings.notifyGameEnd,
+        notifyQuarterEnd: notifSettings.notifyQuarterEnd,
+        trackedGames: nextTracked,
+      }
+      if (experienceId) {
+        payload.experienceId = experienceId
+      }
+
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          experienceId,
-          sport: 'ucl',
-          enabled: notifSettings.enabled,
-          channelIds: notifSettings.channelIds,
-          channelId: notifSettings.channelIds[0] ?? null,
-          channelName: notifSettings.channelName,
-          updateFrequency: notifSettings.updateFrequency,
-          notifyGameStart: notifSettings.notifyGameStart,
-          notifyGameEnd: notifSettings.notifyGameEnd,
-          notifyQuarterEnd: notifSettings.notifyQuarterEnd,
-          trackedGames: nextTracked,
-        }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))

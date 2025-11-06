@@ -52,7 +52,7 @@ export default function HomePage() {
             disabled
             className="px-4 py-2 font-medium text-gray-400 cursor-not-allowed opacity-60 flex items-center gap-2"
           >
-            Premier League
+            EPL
             <span className="text-xs">(coming soon)</span>
           </button>
         </div>
