@@ -1,46 +1,75 @@
 import { NextResponse } from 'next/server'
-import { getTodayGames } from '@/lib/ball'
 import { getConference, calculateWinPercentage, sortStandings, addGamesBack, type TeamStanding } from '@/lib/standings'
 
 export const dynamic = 'force-dynamic'
 
+// Fetch NBA scoreboard data for a given date
+async function fetchScoreboardForDate(dateStr: string) {
+  try {
+    const response = await fetch(
+      `https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json`,
+      { next: { revalidate: 300 } } // Cache for 5 minutes
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return data.scoreboard?.games || []
+  } catch (e) {
+    console.error(`Failed to fetch scoreboard for ${dateStr}:`, e)
+    return []
+  }
+}
+
 export async function GET() {
   try {
-    // Get today's games to extract team records
-    const games = await getTodayGames()
+    // Fetch scoreboard data for the past 7 days to capture all teams
+    const today = new Date()
+    const dates: string[] = []
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      dates.push(date.toISOString().split('T')[0])
+    }
+
+    // Fetch all scoreboards
+    const allGamesPromises = dates.map(date => fetchScoreboardForDate(date))
+    const allGamesArrays = await Promise.all(allGamesPromises)
+    const allGames = allGamesArrays.flat()
 
     // Build a map of teams with their records
     const teamsMap = new Map<number, TeamStanding>()
 
-    games.forEach(game => {
+    allGames.forEach((game: any) => {
       // Add home team
-      if (game.homeTeamId && game.homeWins !== undefined && game.homeLosses !== undefined) {
-        if (!teamsMap.has(game.homeTeamId)) {
-          teamsMap.set(game.homeTeamId, {
-            teamId: game.homeTeamId,
-            teamName: game.homeTeam.split(' ').pop() || game.homeTeam,
-            teamCity: game.homeTeam.split(' ').slice(0, -1).join(' ') || '',
-            teamTricode: game.homeTricode || '',
-            wins: game.homeWins,
-            losses: game.homeLosses,
-            winPct: calculateWinPercentage(game.homeWins, game.homeLosses),
-            conference: getConference(game.homeTeamId),
+      const homeTeam = game.homeTeam
+      if (homeTeam?.teamId && homeTeam.wins !== undefined && homeTeam.losses !== undefined) {
+        if (!teamsMap.has(homeTeam.teamId)) {
+          teamsMap.set(homeTeam.teamId, {
+            teamId: homeTeam.teamId,
+            teamName: homeTeam.teamName || '',
+            teamCity: homeTeam.teamCity || '',
+            teamTricode: homeTeam.teamTricode || '',
+            wins: homeTeam.wins,
+            losses: homeTeam.losses,
+            winPct: calculateWinPercentage(homeTeam.wins, homeTeam.losses),
+            conference: getConference(homeTeam.teamId),
           })
         }
       }
 
       // Add away team
-      if (game.awayTeamId && game.awayWins !== undefined && game.awayLosses !== undefined) {
-        if (!teamsMap.has(game.awayTeamId)) {
-          teamsMap.set(game.awayTeamId, {
-            teamId: game.awayTeamId,
-            teamName: game.awayTeam.split(' ').pop() || game.awayTeam,
-            teamCity: game.awayTeam.split(' ').slice(0, -1).join(' ') || '',
-            teamTricode: game.awayTricode || '',
-            wins: game.awayWins,
-            losses: game.awayLosses,
-            winPct: calculateWinPercentage(game.awayWins, game.awayLosses),
-            conference: getConference(game.awayTeamId),
+      const awayTeam = game.awayTeam
+      if (awayTeam?.teamId && awayTeam.wins !== undefined && awayTeam.losses !== undefined) {
+        if (!teamsMap.has(awayTeam.teamId)) {
+          teamsMap.set(awayTeam.teamId, {
+            teamId: awayTeam.teamId,
+            teamName: awayTeam.teamName || '',
+            teamCity: awayTeam.teamCity || '',
+            teamTricode: awayTeam.teamTricode || '',
+            wins: awayTeam.wins,
+            losses: awayTeam.losses,
+            winPct: calculateWinPercentage(awayTeam.wins, awayTeam.losses),
+            conference: getConference(awayTeam.teamId),
           })
         }
       }
