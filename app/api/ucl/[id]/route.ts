@@ -3,11 +3,13 @@ import { getGameById } from '@/lib/ucl'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const matchId = params.id
-
+export async function GET(
+  request: Request,
+  props: { params: Promise<{ id: string }> }
+) {
   try {
-    const match = await getGameById(matchId)
+    const params = await props.params
+    const match = await getGameById(params.id)
     return NextResponse.json(match, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
