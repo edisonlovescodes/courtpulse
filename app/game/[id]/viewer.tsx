@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { estimateTeamStats, type EstimatedTeamStats } from '@/lib/ball'
+import { estimateTeamStats, getPlayerHeadshotSmallUrl, type EstimatedTeamStats } from '@/lib/ball'
 
 type PlayerStats = {
   personId: number
@@ -914,7 +914,19 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
                 <tbody>
                   {awayPlayers.map((player) => (
                     <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
+                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={getPlayerHeadshotSmallUrl(player.personId)}
+                            alt={player.name}
+                            className="w-10 h-10 rounded-full object-cover bg-gray-100"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          <span>{player.name}</span>
+                        </div>
+                      </td>
                       <td className="text-center py-3 px-3">{player.position}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{formatMinutes(player.statistics.minutes)}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
@@ -972,7 +984,19 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
                 <tbody>
                   {homePlayers.map((player) => (
                     <tr key={player.personId} className="border-b border-black/5 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">{player.name}</td>
+                      <td className="py-3 px-4 font-medium sticky left-0 bg-white">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={getPlayerHeadshotSmallUrl(player.personId)}
+                            alt={player.name}
+                            className="w-10 h-10 rounded-full object-cover bg-gray-100"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                          <span>{player.name}</span>
+                        </div>
+                      </td>
                       <td className="text-center py-3 px-3">{player.position}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{formatMinutes(player.statistics.minutes)}</td>
                       <td className="text-center py-3 px-3 tabular-nums">{player.statistics.reboundsTotal}</td>
