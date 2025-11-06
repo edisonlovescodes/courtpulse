@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { getGameById } from './ball'
 import { getNFLGame } from './nfl'
+import { getGameById as getUCLGame } from './ucl'
 import { createMessage, formatGameUpdateMessage } from './whop-api'
 
 type EventType = 'score' | 'quarter_end' | 'game_start' | 'game_end'
@@ -82,6 +83,25 @@ async function processGameNotification(
         teamCity: nflGame.awayTeam.teamCity,
         teamName: nflGame.awayTeam.teamName,
         score: nflGame.awayTeam.score,
+      },
+    }
+  } else if (sport === 'ucl') {
+    const uclMatch = await getUCLGame(gameId)
+    if (!uclMatch) return
+    game = {
+      gameStatus: uclMatch.gameStatus,
+      gameStatusText: uclMatch.gameStatusText,
+      period: uclMatch.matchday,
+      gameClock: uclMatch.minute?.toString() || '',
+      homeTeam: {
+        teamCity: '',
+        teamName: uclMatch.homeTeam.teamName,
+        score: uclMatch.homeTeam.score,
+      },
+      awayTeam: {
+        teamCity: '',
+        teamName: uclMatch.awayTeam.teamName,
+        score: uclMatch.awayTeam.score,
       },
     }
   } else {

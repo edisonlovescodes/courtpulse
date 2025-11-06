@@ -17,7 +17,7 @@ model GameUnlock {
   id          Int      @id @default(autoincrement())
   userId      String
   gameId      String
-  sport       String   @default("nba") // 'nba' | 'nfl' | 'mlb'
+  sport       String   @default("nba") // 'nba' | 'nfl' | 'ucl'
   period      String   // 'day' | 'week'
   periodStart DateTime
   createdAt   DateTime @default(now())

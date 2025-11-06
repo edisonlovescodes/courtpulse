@@ -143,7 +143,7 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
     try {
       // Add timestamp to prevent caching
       const timestamp = Date.now()
-      const apiPath = sport === 'nfl' ? `/api/nfl/${id}` : `/api/games/${id}`
+      const apiPath = sport === 'nfl' ? `/api/nfl/${id}` : sport === 'ucl' ? `/api/ucl/${id}` : `/api/games/${id}`
       const res = await fetch(`${apiPath}?t=${timestamp}`, {
         cache: 'no-store',
         headers: {
@@ -196,6 +196,184 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
     const t = setInterval(load, 10_000)
     return () => clearInterval(t)
   }, [load])
+
+  // UCL matches - basic view for Phase 1
+  if (sport === 'ucl') {
+    if (error) {
+      return (
+        <main className="space-y-4">
+          <Link href="/" className="text-sm">← Back</Link>
+          <div className="card">
+            <div className="text-red-600 font-medium">{error}</div>
+          </div>
+        </main>
+      )
+    }
+
+    if (!data) {
+      return (
+        <main className="p-4">
+          <div className="rounded-2xl bg-white border border-black/10 p-8 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
+            <div className="h-24 bg-gray-200 rounded mb-4"></div>
+            <div className="h-12 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </main>
+      )
+    }
+
+    const uclData = data as any
+    const isLive = uclData.gameStatus === 2
+    const isFinal = uclData.gameStatus === 3
+
+    const formatMatchMinute = (minute?: number) => {
+      if (!minute && minute !== 0) return ''
+      if (minute > 90) return `90+${minute - 90}'`
+      return `${minute}'`
+    }
+
+    return (
+      <main className="space-y-6">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium hover:text-brand-accent transition group">
+          <svg className="w-5 h-5 group-hover:-translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to All Games
+        </Link>
+
+        {/* Match Score Card */}
+        <div className={`rounded-3xl p-8 md:p-12 border-2 shadow-xl ${
+          isLive
+            ? 'bg-gradient-to-br from-red-50 via-white to-red-50 border-red-200'
+            : 'bg-gradient-to-br from-blue-50 via-white to-purple-50 border-blue-200'
+        }`}>
+          <div className="space-y-8">
+            {/* Status Badge */}
+            <div className="flex items-center justify-center gap-4">
+              {isLive && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-600">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  Live
+                </span>
+              )}
+              {isFinal && (
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Final
+                </span>
+              )}
+              {!isLive && !isFinal && (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                  {uclData.gameStatusText}
+                </span>
+              )}
+              {uclData.minute !== undefined && uclData.minute !== null && (
+                <span className="text-sm font-semibold text-gray-700">
+                  <span className="font-mono text-gray-500">
+                    {formatMatchMinute(uclData.minute)}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Matchday Info */}
+            {uclData.matchday && (
+              <div className="text-center">
+                <span className="inline-block px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700">
+                  Matchday {uclData.matchday}
+                </span>
+              </div>
+            )}
+
+            {/* Away Team */}
+            <div className="flex items-center justify-between p-6 bg-white/80 rounded-2xl border border-black/5">
+              <div className="flex items-center gap-4">
+                {uclData.awayTeam?.teamCrest && (
+                  <img
+                    src={uclData.awayTeam.teamCrest}
+                    alt={uclData.awayTeam.teamName}
+                    className="h-16 w-16 object-contain"
+                  />
+                )}
+                <div>
+                  <div className="text-2xl md:text-3xl font-bold text-gray-900">
+                    {uclData.awayTeam?.teamName || 'Away Team'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-black text-brand-accent">
+                {uclData.awayTeam?.score ?? 0}
+              </div>
+            </div>
+
+            {/* Home Team */}
+            <div className="flex items-center justify-between p-6 bg-white/80 rounded-2xl border border-black/5">
+              <div className="flex items-center gap-4">
+                {uclData.homeTeam?.teamCrest && (
+                  <img
+                    src={uclData.homeTeam.teamCrest}
+                    alt={uclData.homeTeam.teamName}
+                    className="h-16 w-16 object-contain"
+                  />
+                )}
+                <div>
+                  <div className="text-2xl md:text-3xl font-bold text-gray-900">
+                    {uclData.homeTeam?.teamName || 'Home Team'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-5xl md:text-6xl font-black text-brand-accent">
+                {uclData.homeTeam?.score ?? 0}
+              </div>
+            </div>
+
+            {/* Scorers */}
+            {uclData.scorers && uclData.scorers.length > 0 && (
+              <div className="p-6 bg-white/80 rounded-2xl border border-black/5">
+                <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Goal Scorers</div>
+                <div className="space-y-2">
+                  {uclData.scorers.map((scorer: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-black/5 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-700">
+                          {scorer.playerName}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({scorer.team === 'home' ? uclData.homeTeam?.teamName : uclData.awayTeam?.teamName})
+                        </span>
+                      </div>
+                      <span className="text-sm font-mono text-brand-accent font-semibold">
+                        {scorer.minute}&apos;
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Venue */}
+            {uclData.venue && (
+              <div className="text-center text-sm text-gray-600">
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {uclData.venue}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Coming Soon Notice */}
+        <div className="rounded-2xl bg-blue-50 border border-blue-200 p-6 text-center">
+          <p className="text-sm text-blue-800">
+            Detailed match statistics and play-by-play coming soon!
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   // NFL games - basic view for Phase 1
   if (sport === 'nfl') {

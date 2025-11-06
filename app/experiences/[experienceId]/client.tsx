@@ -2,8 +2,9 @@
 import { useState } from 'react'
 import LiveGames from '../../components/LiveGames'
 import LiveNFLGames from '../../components/LiveNFLGames'
+import LiveUCLGames from '../../components/LiveUCLGames'
 
-type Sport = 'nba' | 'nfl'
+type Sport = 'nba' | 'nfl' | 'ucl'
 
 type ExperienceClientProps = {
   companyId?: string
@@ -38,11 +39,14 @@ export default function ExperienceClient({ companyId, isAdmin }: ExperienceClien
           NFL
         </button>
         <button
-          disabled
-          className="px-4 py-2 font-medium text-gray-400 cursor-not-allowed opacity-60 flex items-center gap-2"
+          onClick={() => setActiveSport('ucl')}
+          className={`px-4 py-2 font-medium transition ${
+            activeSport === 'ucl'
+              ? 'text-brand-accent border-b-2 border-brand-accent -mb-[1px]'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
         >
-          MLB
-          <span className="text-xs">(coming soon)</span>
+          Champions League
         </button>
         <button
           disabled
@@ -58,6 +62,9 @@ export default function ExperienceClient({ companyId, isAdmin }: ExperienceClien
       )}
       {activeSport === 'nfl' && (
         <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+      )}
+      {activeSport === 'ucl' && (
+        <LiveUCLGames companyId={companyId} isAdmin={isAdmin} />
       )}
     </main>
   )

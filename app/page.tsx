@@ -3,8 +3,9 @@ import { useState, lazy, Suspense } from 'react'
 import LiveGames from './components/LiveGames'
 
 const LiveNFLGames = lazy(() => import('./components/LiveNFLGames'))
+const LiveUCLGames = lazy(() => import('./components/LiveUCLGames'))
 
-type Sport = 'nba' | 'nfl'
+type Sport = 'nba' | 'nfl' | 'ucl'
 
 export default function HomePage() {
   const [activeSport, setActiveSport] = useState<Sport>('nba')
@@ -38,11 +39,14 @@ export default function HomePage() {
             NFL
           </button>
           <button
-            disabled
-            className="px-4 py-2 font-medium text-gray-400 cursor-not-allowed opacity-60 flex items-center gap-2"
+            onClick={() => setActiveSport('ucl')}
+            className={`px-4 py-2 font-medium transition ${
+              activeSport === 'ucl'
+                ? 'text-brand-accent border-b-2 border-brand-accent -mb-[1px]'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            MLB
-            <span className="text-xs">(coming soon)</span>
+            Champions League
           </button>
           <button
             disabled
@@ -59,6 +63,11 @@ export default function HomePage() {
         {activeSport === 'nfl' && (
           <Suspense fallback={<div className="text-center py-8 text-gray-500">Loading...</div>}>
             <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+          </Suspense>
+        )}
+        {activeSport === 'ucl' && (
+          <Suspense fallback={<div className="text-center py-8 text-gray-500">Loading...</div>}>
+            <LiveUCLGames companyId={companyId} isAdmin={isAdmin} />
           </Suspense>
         )}
       </main>

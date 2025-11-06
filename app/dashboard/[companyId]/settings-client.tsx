@@ -42,6 +42,15 @@ type NFLGame = {
   }
 }
 
+type UCLGame = {
+  id: string
+  homeTeam: string
+  awayTeam: string
+  homeScore: number
+  awayScore: number
+  status: string
+}
+
 type DashboardSettingsProps = {
   companyId: string
   experienceId?: string
@@ -84,6 +93,7 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
   const [settings, setSettings] = useState<Settings | null>(null)
   const [games, setGames] = useState<TodayGame[]>([])
   const [nflGames, setNflGames] = useState<NFLGame[]>([])
+  const [uclGames, setUclGames] = useState<UCLGame[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -97,6 +107,7 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
   const [notifyQuarterEnd, setNotifyQuarterEnd] = useState(true)
   const [trackedGames, setTrackedGames] = useState<string[]>([])
   const [nflTrackedGames, setNflTrackedGames] = useState<string[]>([])
+  const [uclTrackedGames, setUclTrackedGames] = useState<string[]>([])
 
   // Extract experienceId from URL if not provided by server
   const experienceId = serverExperienceId || (() => {
@@ -196,6 +207,15 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
         setNflTrackedGames(nflData.settings?.trackedGames || [])
       }
 
+      // Load UCL tracked games (scoped to this experience)
+      const uclSettingsRes = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=ucl`, {
+        headers: { ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+      })
+      if (uclSettingsRes.ok) {
+        const uclData = await uclSettingsRes.json()
+        setUclTrackedGames(uclData.settings?.trackedGames || [])
+      }
+
       setMessage('')
     } catch (e: any) {
       setMessage(`Error: ${e.message}`)
@@ -217,6 +237,12 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
       .then((data: NFLGame[]) => setNflGames(data || []))
       .catch(() => setNflGames([]))
+
+    // Load today's UCL matches
+    fetch('/api/ucl/today', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`Failed (${r.status})`))))
+      .then((data: { games: UCLGame[] }) => setUclGames(data.games || []))
+      .catch(() => setUclGames([]))
 
     loadSettings()
   }, [loadSettings])
@@ -278,6 +304,28 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
 
       if (!nflRes.ok) throw new Error('Failed to save NFL settings')
 
+      // Save UCL settings (tracked games only, scoped to this experience)
+      const uclRes = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(authHeaders || {}), ...(adminToken ? { 'X-CP-Admin': adminToken } : {}) },
+        body: JSON.stringify({
+          companyId,
+          experienceId,
+          sport: 'ucl',
+          enabled,
+          channelId: selectedChannels[0] || null,
+          channelIds: selectedChannels,
+          channelName,
+          updateFrequency,
+          notifyGameStart,
+          notifyGameEnd,
+          notifyQuarterEnd,
+          trackedGames: uclTrackedGames,
+        }),
+      })
+
+      if (!uclRes.ok) throw new Error('Failed to save UCL settings')
+
       const data = await res.json()
       setSettings(data.settings)
       setMessage('Settings saved successfully!')
@@ -298,6 +346,14 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
 
   const toggleNflGame = (gameId: string) => {
     setNflTrackedGames(prev =>
+      prev.includes(gameId)
+        ? prev.filter(id => id !== gameId)
+        : [...prev, gameId]
+    )
+  }
+
+  const toggleUclGame = (gameId: string) => {
+    setUclTrackedGames(prev =>
       prev.includes(gameId)
         ? prev.filter(id => id !== gameId)
         : [...prev, gameId]
@@ -493,7 +549,7 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
             Choose which games you want to receive notifications for
           </p>
 
-          {games.length === 0 && nflGames.length === 0 ? (
+          {games.length === 0 && nflGames.length === 0 && uclGames.length === 0 ? (
             <p className="text-sm text-gray-500">No games today</p>
           ) : (
             <div className="space-y-4">
@@ -546,6 +602,34 @@ export default function DashboardSettings({ companyId, experienceId: serverExper
                         </div>
                         <div className="text-sm text-gray-600">
                           {game.gameStatusText} • {game.awayTeam.score} - {game.homeTeam.score}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* UCL Matches */}
+              {uclGames.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">UCL Matches</h4>
+                  {uclGames.map(game => (
+                    <label
+                      key={game.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-black/10 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={uclTrackedGames.includes(game.id)}
+                        onChange={() => toggleUclGame(game.id)}
+                        className="w-4 h-4 text-brand-accent rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {game.awayTeam} @ {game.homeTeam}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {game.status} • {game.awayScore} - {game.homeScore}
                         </div>
                       </div>
                     </label>
