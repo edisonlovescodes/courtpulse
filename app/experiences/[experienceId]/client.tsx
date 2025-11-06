@@ -8,10 +8,11 @@ type Sport = 'nba' | 'nfl' | 'ucl'
 
 type ExperienceClientProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 
-export default function ExperienceClient({ companyId, isAdmin }: ExperienceClientProps) {
+export default function ExperienceClient({ companyId, experienceId, isAdmin }: ExperienceClientProps) {
   const [activeSport, setActiveSport] = useState<Sport>('nba')
 
   return (
@@ -46,7 +47,7 @@ export default function ExperienceClient({ companyId, isAdmin }: ExperienceClien
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          Champions League
+          UCL
         </button>
         <button
           disabled
@@ -58,13 +59,13 @@ export default function ExperienceClient({ companyId, isAdmin }: ExperienceClien
       </div>
 
       {activeSport === 'nba' && (
-        <LiveGames companyId={companyId} isAdmin={isAdmin} />
+        <LiveGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
       )}
       {activeSport === 'nfl' && (
-        <LiveNFLGames companyId={companyId} isAdmin={isAdmin} />
+        <LiveNFLGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
       )}
       {activeSport === 'ucl' && (
-        <LiveUCLGames companyId={companyId} isAdmin={isAdmin} />
+        <LiveUCLGames companyId={companyId} experienceId={experienceId} isAdmin={isAdmin} />
       )}
     </main>
   )

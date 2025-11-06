@@ -46,7 +46,7 @@ export default function HomePage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Champions League
+            UCL
           </button>
           <button
             disabled

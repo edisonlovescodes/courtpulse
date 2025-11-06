@@ -32,6 +32,7 @@ type Game = {
 
 type LiveGamesProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 

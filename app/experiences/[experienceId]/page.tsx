@@ -15,5 +15,5 @@ export default async function ExperiencePage(props: { params: Promise<{ experien
   const companyId = ctx.companyId
   const isAdmin = ctx.isAdmin
 
-  return <ExperienceClient companyId={companyId ?? undefined} isAdmin={isAdmin} />
+  return <ExperienceClient companyId={companyId ?? undefined} experienceId={ctx.experienceId ?? undefined} isAdmin={isAdmin} />
 }

@@ -22,6 +22,7 @@ type UCLGame = {
 
 type LiveUCLGamesProps = {
   companyId?: string
+  experienceId?: string
   isAdmin?: boolean
 }
 
@@ -89,7 +90,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: LiveUCLGamesProps = {}) {
+export default function LiveUCLGames({ companyId: initialCompanyId, experienceId, isAdmin }: LiveUCLGamesProps = {}) {
   const [games, setGames] = useState<UCLGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -131,12 +132,12 @@ export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: L
   }, [loadGames])
 
   const loadNotifications = useCallback(async () => {
-    if (!companyId) return
+    if (!companyId || !experienceId) return
     setNotifLoading(true)
     setNotifError(null)
 
     try {
-      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&sport=ucl`, {
+      const res = await fetch(`/api/admin/notifications?company_id=${companyId}&experience_id=${experienceId}&sport=ucl`, {
         cache: 'no-store',
       })
       if (!res.ok) {
@@ -150,7 +151,7 @@ export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: L
     } finally {
       setNotifLoading(false)
     }
-  }, [companyId])
+  }, [companyId, experienceId])
 
   useEffect(() => {
     if (!companyId) {
@@ -162,8 +163,8 @@ export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: L
   }, [companyId, loadNotifications])
 
   const toggleTrackedGame = useCallback(async (gameId: string, nextChecked: boolean) => {
-    if (!companyId) {
-      setNotifError('Company context missing. Please refresh the page.')
+    if (!companyId || !experienceId) {
+      setNotifError('Company or experience context missing. Please refresh the page.')
       return
     }
 
@@ -192,6 +193,7 @@ export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: L
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
+          experienceId,
           sport: 'ucl',
           enabled: notifSettings.enabled,
           channelIds: notifSettings.channelIds,
@@ -221,7 +223,7 @@ export default function LiveUCLGames({ companyId: initialCompanyId, isAdmin }: L
         return next
       })
     }
-  }, [companyId, notifSettings])
+  }, [companyId, experienceId, notifSettings])
 
   const liveGames = useMemo(() => games.filter((g) => isLive(g.status)), [games])
   const otherGames = useMemo(() => games.filter((g) => !isLive(g.status)), [games])
