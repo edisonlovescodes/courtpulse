@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
+type Sport = 'nba' | 'nfl' | 'ucl'
+
 type TeamStanding = {
   teamId: number
   teamName: string
@@ -20,8 +22,16 @@ type StandingsData = {
   lastUpdated: string
 }
 
-function getTeamLogoUrl(teamId: number): string {
-  return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+function getTeamLogoUrl(teamId: number, sport: Sport): string {
+  if (sport === 'nba') {
+    return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
+  } else if (sport === 'nfl') {
+    // ESPN NFL team logos
+    return `https://a.espncdn.com/i/teamlogos/nfl/500/${teamId}.png`
+  } else {
+    // UCL team crests - will be handled differently
+    return ''
+  }
 }
 
 function formatWinPct(pct: number): string {
@@ -34,14 +44,17 @@ function formatGamesBack(gb?: number): string {
 }
 
 export default function StandingsPage() {
+  const [activeSport, setActiveSport] = useState<Sport>('nba')
   const [standings, setStandings] = useState<StandingsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadStandings() {
+      setLoading(true)
+      setError(null)
       try {
-        const res = await fetch('/api/standings', {
+        const res = await fetch(`/api/standings/${activeSport}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -60,7 +73,15 @@ export default function StandingsPage() {
     }
 
     loadStandings()
-  }, [])
+  }, [activeSport])
+
+  const getSportTitle = () => {
+    switch (activeSport) {
+      case 'nba': return 'NBA Standings'
+      case 'nfl': return 'NFL Standings'
+      case 'ucl': return 'UCL Standings'
+    }
+  }
 
   if (loading) {
     return (
@@ -68,7 +89,39 @@ export default function StandingsPage() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <Link href="/" className="text-sm text-brand-accent hover:underline">← Back to Games</Link>
-            <h1 className="text-4xl font-bold mt-4 mb-2">NBA Standings</h1>
+            <h1 className="text-4xl font-bold mt-4 mb-2">{getSportTitle()}</h1>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setActiveSport('nba')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'nba'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                NBA
+              </button>
+              <button
+                onClick={() => setActiveSport('nfl')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'nfl'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                NFL
+              </button>
+              <button
+                onClick={() => setActiveSport('ucl')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'ucl'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                UCL
+              </button>
+            </div>
           </div>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl border-2 border-black/10 p-8 animate-pulse h-96" />
@@ -85,7 +138,39 @@ export default function StandingsPage() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <Link href="/" className="text-sm text-brand-accent hover:underline">← Back to Games</Link>
-            <h1 className="text-4xl font-bold mt-4 mb-2">NBA Standings</h1>
+            <h1 className="text-4xl font-bold mt-4 mb-2">{getSportTitle()}</h1>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setActiveSport('nba')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'nba'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                NBA
+              </button>
+              <button
+                onClick={() => setActiveSport('nfl')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'nfl'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                NFL
+              </button>
+              <button
+                onClick={() => setActiveSport('ucl')}
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                  activeSport === 'ucl'
+                    ? 'bg-brand-accent text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+                }`}
+              >
+                UCL
+              </button>
+            </div>
           </div>
           <div className="bg-white rounded-2xl border-2 border-black/10 p-8 text-center">
             <p className="text-red-600">{error || 'No standings data available'}</p>
@@ -100,15 +185,49 @@ export default function StandingsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <Link href="/" className="text-sm text-brand-accent hover:underline font-medium">← Back to Games</Link>
-          <h1 className="text-4xl font-bold mt-4 mb-2">NBA Standings</h1>
+          <h1 className="text-4xl font-bold mt-4 mb-2">{getSportTitle()}</h1>
           <p className="text-sm text-gray-600">Current season records</p>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setActiveSport('nba')}
+              className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                activeSport === 'nba'
+                  ? 'bg-brand-accent text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+              }`}
+            >
+              NBA
+            </button>
+            <button
+              onClick={() => setActiveSport('nfl')}
+              className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                activeSport === 'nfl'
+                  ? 'bg-brand-accent text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+              }`}
+            >
+              NFL
+            </button>
+            <button
+              onClick={() => setActiveSport('ucl')}
+              className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+                activeSport === 'ucl'
+                  ? 'bg-brand-accent text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-black/10'
+              }`}
+            >
+              UCL
+            </button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Eastern Conference */}
+          {/* Eastern Conference / AFC / Top Half */}
           <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
-              <h2 className="text-2xl font-bold text-white">Eastern Conference</h2>
+              <h2 className="text-2xl font-bold text-white">
+                {activeSport === 'nba' ? 'Eastern Conference' : activeSport === 'nfl' ? 'AFC' : 'Top Teams'}
+              </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -129,14 +248,14 @@ export default function StandingsPage() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={getTeamLogoUrl(team.teamId)}
+                            src={getTeamLogoUrl(team.teamId, activeSport)}
                             alt={team.teamName}
                             className="w-8 h-8 object-contain"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                           />
                           <div>
-                            <div className="font-bold text-sm">{team.teamCity}</div>
-                            <div className="text-xs text-gray-600">{team.teamName}</div>
+                            <div className="font-bold text-sm">{team.teamCity || team.teamName}</div>
+                            <div className="text-xs text-gray-600">{team.teamCity ? team.teamName : team.teamTricode}</div>
                           </div>
                         </div>
                       </td>
@@ -151,10 +270,12 @@ export default function StandingsPage() {
             </div>
           </div>
 
-          {/* Western Conference */}
+          {/* Western Conference / NFC / Bottom Half */}
           <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
             <div className="bg-gradient-to-r from-red-500 to-red-600 p-6">
-              <h2 className="text-2xl font-bold text-white">Western Conference</h2>
+              <h2 className="text-2xl font-bold text-white">
+                {activeSport === 'nba' ? 'Western Conference' : activeSport === 'nfl' ? 'NFC' : 'Bottom Teams'}
+              </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -175,14 +296,14 @@ export default function StandingsPage() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={getTeamLogoUrl(team.teamId)}
+                            src={getTeamLogoUrl(team.teamId, activeSport)}
                             alt={team.teamName}
                             className="w-8 h-8 object-contain"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                           />
                           <div>
-                            <div className="font-bold text-sm">{team.teamCity}</div>
-                            <div className="text-xs text-gray-600">{team.teamName}</div>
+                            <div className="font-bold text-sm">{team.teamCity || team.teamName}</div>
+                            <div className="text-xs text-gray-600">{team.teamCity ? team.teamName : team.teamTricode}</div>
                           </div>
                         </div>
                       </td>
