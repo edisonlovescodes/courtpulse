@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { estimateTeamStats, getPlayerHeadshotSmallUrl, type EstimatedTeamStats } from '@/lib/ball'
+import { estimateTeamStats, getPlayerHeadshotSmallUrl, type EstimatedTeamStats, type PlayByPlayAction, type PlayByPlayResponse } from '@/lib/ball'
 
 type PlayerStats = {
   personId: number
@@ -135,7 +135,7 @@ function formatRecord(wins?: number, losses?: number): string {
 export default function Client({ id, sport = 'nba' }: { id: string; sport?: string }) {
   const [data, setData] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats'>('boxscore')
+  const [activeTab, setActiveTab] = useState<'overview' | 'boxscore' | 'teamstats' | 'playbyplay'>('boxscore')
   const [awayStats, setAwayStats] = useState<any>(null)
   const [homeStats, setHomeStats] = useState<any>(null)
 
@@ -882,6 +882,16 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
         >
           Team Stats
         </button>
+        <button
+          onClick={() => setActiveTab('playbyplay')}
+          className={`px-6 py-3 font-bold transition ${
+            activeTab === 'playbyplay'
+              ? 'text-brand-accent border-b-2 border-brand-accent'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Play-by-Play
+        </button>
       </div>
 
       {/* Player Stats Tab */}
@@ -1135,6 +1145,265 @@ export default function Client({ id, sport = 'nba' }: { id: string; sport?: stri
         </div>
       )}
 
+      {/* Play-by-Play Tab */}
+      {activeTab === 'playbyplay' && sport === 'nba' && (
+        <PlayByPlayTab gameId={id} homeTeam={data?.homeTeam} awayTeam={data?.awayTeam} />
+      )}
+
     </main>
+  )
+}
+
+// Play-by-Play Component
+function PlayByPlayTab({ gameId, homeTeam, awayTeam }: { gameId: string; homeTeam?: string; awayTeam?: string }) {
+  const [actions, setActions] = useState<PlayByPlayAction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState<number | 'all'>('all')
+  const [selectedActionType, setSelectedActionType] = useState<string>('all')
+
+  useEffect(() => {
+    const fetchPlayByPlay = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/games/${gameId}/playbyplay`)
+        if (!res.ok) {
+          throw new Error('Play-by-play data not available')
+        }
+        const data: PlayByPlayResponse = await res.json()
+        setActions(data.actions || [])
+      } catch (e: any) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPlayByPlay()
+  }, [gameId])
+
+  // Get unique periods from actions
+  const periods = Array.from(new Set(actions.map(a => a.period))).sort((a, b) => a - b)
+
+  // Filter actions based on selected period and action type
+  const filteredActions = actions.filter(action => {
+    if (selectedPeriod !== 'all' && action.period !== selectedPeriod) {
+      return false
+    }
+    if (selectedActionType !== 'all') {
+      if (selectedActionType === 'scoring' && action.isFieldGoal !== 1 && !action.actionType.includes('freethrow')) {
+        return false
+      }
+      if (selectedActionType === 'turnovers' && !action.actionType.includes('turnover')) {
+        return false
+      }
+      if (selectedActionType === 'fouls' && !action.actionType.includes('foul')) {
+        return false
+      }
+      if (selectedActionType === 'rebounds' && !action.actionType.includes('rebound')) {
+        return false
+      }
+    }
+    return true
+  })
+
+  const getPeriodLabel = (period: number) => {
+    if (period <= 4) return `Q${period}`
+    return `OT${period - 4}`
+  }
+
+  const getActionIcon = (action: PlayByPlayAction) => {
+    if (action.isFieldGoal === 1) return '🏀'
+    if (action.actionType.includes('freethrow')) return '🎯'
+    if (action.actionType.includes('rebound')) return '↩️'
+    if (action.actionType.includes('turnover')) return '❌'
+    if (action.actionType.includes('foul')) return '🔴'
+    if (action.actionType.includes('substitution')) return '↔️'
+    if (action.actionType.includes('timeout')) return '⏸️'
+    return '•'
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border-2 border-black/10 p-12 text-center">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-48 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-64 mx-auto"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || actions.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border-2 border-black/10 p-12 text-center">
+        <p className="text-gray-500 text-lg">
+          {error || 'Play-by-play data not available for this game'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="bg-white rounded-2xl border-2 border-black/10 p-4">
+        <div className="space-y-4">
+          {/* Period Filters */}
+          <div>
+            <h4 className="text-sm font-bold text-gray-600 mb-2">Period</h4>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedPeriod('all')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedPeriod === 'all'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {periods.map(period => (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`px-4 py-2 rounded-lg font-bold transition ${
+                    selectedPeriod === period
+                      ? 'bg-brand-accent text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {getPeriodLabel(period)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Type Filters */}
+          <div>
+            <h4 className="text-sm font-bold text-gray-600 mb-2">Action Type</h4>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedActionType('all')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedActionType === 'all'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Plays
+              </button>
+              <button
+                onClick={() => setSelectedActionType('scoring')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedActionType === 'scoring'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Scoring
+              </button>
+              <button
+                onClick={() => setSelectedActionType('turnovers')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedActionType === 'turnovers'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Turnovers
+              </button>
+              <button
+                onClick={() => setSelectedActionType('fouls')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedActionType === 'fouls'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Fouls
+              </button>
+              <button
+                onClick={() => setSelectedActionType('rebounds')}
+                className={`px-4 py-2 rounded-lg font-bold transition ${
+                  selectedActionType === 'rebounds'
+                    ? 'bg-brand-accent text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Rebounds
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Play-by-Play Timeline */}
+      <div className="bg-white rounded-2xl border-2 border-black/10 overflow-hidden">
+        <div className="divide-y divide-black/5">
+          {filteredActions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No plays found for the selected filters
+            </div>
+          ) : (
+            filteredActions.map((action, idx) => {
+              const prevAction = idx > 0 ? filteredActions[idx - 1] : null
+              const showPeriodHeader = !prevAction || prevAction.period !== action.period
+
+              return (
+                <div key={action.actionNumber}>
+                  {/* Period Header */}
+                  {showPeriodHeader && (
+                    <div className="bg-gray-50 px-6 py-3 font-bold text-sm text-gray-700 border-b border-black/10">
+                      {getPeriodLabel(action.period)}
+                    </div>
+                  )}
+
+                  {/* Play Row */}
+                  <div className="px-6 py-4 hover:bg-gray-50 transition">
+                    <div className="flex items-start gap-4">
+                      {/* Time */}
+                      <div className="text-sm font-bold text-gray-500 w-16 flex-shrink-0 tabular-nums">
+                        {action.clock}
+                      </div>
+
+                      {/* Icon */}
+                      <div className="text-xl flex-shrink-0">
+                        {getActionIcon(action)}
+                      </div>
+
+                      {/* Description */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm leading-relaxed">
+                          {action.teamTricode && (
+                            <span className="font-bold text-brand-accent mr-2">
+                              {action.teamTricode}
+                            </span>
+                          )}
+                          {action.description}
+                        </p>
+                      </div>
+
+                      {/* Score */}
+                      {(action.scoreHome || action.scoreAway) && (
+                        <div className="text-sm font-bold text-gray-700 tabular-nums flex-shrink-0">
+                          {action.scoreAway} - {action.scoreHome}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Results Count */}
+      <div className="text-center text-sm text-gray-500">
+        Showing {filteredActions.length} of {actions.length} plays
+      </div>
+    </div>
   )
 }

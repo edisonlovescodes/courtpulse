@@ -9,11 +9,18 @@ type TeamStanding = {
   teamName: string
   teamCity: string
   teamTricode: string
+  teamCrest?: string // UCL team crest URL
   wins: number
   losses: number
+  draws?: number // UCL draws
   winPct: number
   conference: 'East' | 'West'
   gamesBack?: number
+  points?: number // UCL points
+  played?: number // UCL matches played
+  goalsFor?: number // UCL goals for
+  goalsAgainst?: number // UCL goals against
+  goalDifference?: number // UCL goal difference
 }
 
 type StandingsData = {
@@ -22,14 +29,16 @@ type StandingsData = {
   lastUpdated: string
 }
 
-function getTeamLogoUrl(teamId: number, sport: Sport): string {
+function getTeamLogoUrl(teamId: number, sport: Sport, teamCrest?: string): string {
   if (sport === 'nba') {
     return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`
   } else if (sport === 'nfl') {
     // ESPN NFL team logos
     return `https://a.espncdn.com/i/teamlogos/nfl/500/${teamId}.png`
+  } else if (sport === 'ucl') {
+    // UCL team crests from API
+    return teamCrest || ''
   } else {
-    // UCL team crests - will be handled differently
     return ''
   }
 }
@@ -235,10 +244,20 @@ export default function StandingsPage() {
                   <tr>
                     <th className="text-left p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">#</th>
                     <th className="text-left p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">Team</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">W</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">L</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PCT</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GB</th>
+                    {activeSport === 'ucl' ? (
+                      <>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">MP</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PTS</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GD</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">W</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">L</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PCT</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GB</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -248,7 +267,7 @@ export default function StandingsPage() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={getTeamLogoUrl(team.teamId, activeSport)}
+                            src={getTeamLogoUrl(team.teamId, activeSport, team.teamCrest)}
                             alt={team.teamName}
                             className="w-8 h-8 object-contain"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -259,10 +278,20 @@ export default function StandingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-center font-bold">{team.wins}</td>
-                      <td className="p-4 text-center font-bold">{team.losses}</td>
-                      <td className="p-4 text-center text-sm">{formatWinPct(team.winPct)}</td>
-                      <td className="p-4 text-center text-sm text-gray-600">{formatGamesBack(team.gamesBack)}</td>
+                      {activeSport === 'ucl' ? (
+                        <>
+                          <td className="p-4 text-center font-bold">{team.played || 0}</td>
+                          <td className="p-4 text-center font-bold">{team.points || 0}</td>
+                          <td className="p-4 text-center text-sm">{team.goalDifference !== undefined ? (team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference) : '0'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-4 text-center font-bold">{team.wins}</td>
+                          <td className="p-4 text-center font-bold">{team.losses}</td>
+                          <td className="p-4 text-center text-sm">{formatWinPct(team.winPct)}</td>
+                          <td className="p-4 text-center text-sm text-gray-600">{formatGamesBack(team.gamesBack)}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -283,10 +312,20 @@ export default function StandingsPage() {
                   <tr>
                     <th className="text-left p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">#</th>
                     <th className="text-left p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">Team</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">W</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">L</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PCT</th>
-                    <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GB</th>
+                    {activeSport === 'ucl' ? (
+                      <>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">MP</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PTS</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GD</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">W</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">L</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">PCT</th>
+                        <th className="text-center p-4 text-xs font-bold text-gray-600 uppercase tracking-wide">GB</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -296,7 +335,7 @@ export default function StandingsPage() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={getTeamLogoUrl(team.teamId, activeSport)}
+                            src={getTeamLogoUrl(team.teamId, activeSport, team.teamCrest)}
                             alt={team.teamName}
                             className="w-8 h-8 object-contain"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -307,10 +346,20 @@ export default function StandingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-center font-bold">{team.wins}</td>
-                      <td className="p-4 text-center font-bold">{team.losses}</td>
-                      <td className="p-4 text-center text-sm">{formatWinPct(team.winPct)}</td>
-                      <td className="p-4 text-center text-sm text-gray-600">{formatGamesBack(team.gamesBack)}</td>
+                      {activeSport === 'ucl' ? (
+                        <>
+                          <td className="p-4 text-center font-bold">{team.played || 0}</td>
+                          <td className="p-4 text-center font-bold">{team.points || 0}</td>
+                          <td className="p-4 text-center text-sm">{team.goalDifference !== undefined ? (team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference) : '0'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-4 text-center font-bold">{team.wins}</td>
+                          <td className="p-4 text-center font-bold">{team.losses}</td>
+                          <td className="p-4 text-center text-sm">{formatWinPct(team.winPct)}</td>
+                          <td className="p-4 text-center text-sm text-gray-600">{formatGamesBack(team.gamesBack)}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>

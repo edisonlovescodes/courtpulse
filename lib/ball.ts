@@ -527,3 +527,60 @@ export function estimateTeamStats(wins: number, losses: number, teamId?: number)
     tpg: Math.round(tpg * 10) / 10,
   }
 }
+
+// Play-by-Play Types
+export type PlayByPlayAction = {
+  actionNumber: number
+  actionType: string
+  assistPersonId?: number
+  assistPlayerNameInitial?: string
+  assistTotal?: number
+  clock: string
+  description: string
+  descriptor?: string
+  edited?: string
+  foulDrawnPersonId?: number
+  foulDrawnPlayerName?: string
+  foulPersonalTotal?: number
+  foulTechnicalTotal?: number
+  isFieldGoal?: number
+  jumpBallRecoveredName?: string
+  jumpBallRecoverdPersonId?: number
+  jumpBallWonPersonId?: number
+  jumpBallWonPlayerName?: string
+  orderNumber: number
+  period: number
+  periodType?: string
+  personId?: number
+  personIdsFilter?: number[]
+  playerName?: string
+  playerNameI?: string
+  pointsTotal?: number
+  possession?: number
+  qualifiers?: string[]
+  reboundDefensiveTotal?: number
+  reboundOffensiveTotal?: number
+  reboundTotal?: number
+  scoreAway?: string
+  scoreHome?: string
+  shotActionNumber?: number
+  shotDistance?: number
+  shotResult?: string
+  stealPersonId?: number
+  stealPlayerName?: string
+  subType?: string
+  teamId?: number
+  teamTricode?: string
+  turnoverTotal?: number
+  value?: string
+  x?: number
+  xLegacy?: number
+  y?: number
+  yLegacy?: number
+}
+
+export type PlayByPlayResponse = {
+  gameId: string
+  actions: PlayByPlayAction[]
+  totalActions: number
+}

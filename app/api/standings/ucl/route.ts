@@ -96,6 +96,7 @@ export async function GET() {
       teamName: entry.team.name,
       teamCity: '', // Not provided by API
       teamTricode: entry.team.tla || entry.team.shortName || '',
+      teamCrest: entry.team.crest || '', // Team crest URL
       wins: entry.won || 0,
       losses: entry.lost || 0,
       draws: entry.draw || 0,
