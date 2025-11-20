@@ -24,6 +24,8 @@ type Settings = {
   notifyGameEnd: boolean
   notifyQuarterEnd: boolean
   trackedGames: string[]
+  createGameChannels: boolean
+  gameChannelId: string | null
 }
 
 export default function NotificationSettings() {
@@ -43,6 +45,8 @@ export default function NotificationSettings() {
   const [notifyGameEnd, setNotifyGameEnd] = useState(true)
   const [notifyQuarterEnd, setNotifyQuarterEnd] = useState(true)
   const [trackedGames, setTrackedGames] = useState<string[]>([])
+  const [createGameChannels, setCreateGameChannels] = useState(false)
+  const [gameChannelId, setGameChannelId] = useState('')
 
   useEffect(() => {
     // Load today's games
@@ -84,6 +88,8 @@ export default function NotificationSettings() {
       setNotifyGameEnd(s.notifyGameEnd)
       setNotifyQuarterEnd(s.notifyQuarterEnd)
       setTrackedGames(s.trackedGames || [])
+      setCreateGameChannels(s.createGameChannels || false)
+      setGameChannelId(s.gameChannelId || '')
 
       setMessage('')
     } catch (e: any) {
@@ -127,6 +133,8 @@ export default function NotificationSettings() {
           notifyGameEnd,
           notifyQuarterEnd,
           trackedGames,
+          createGameChannels,
+          gameChannelId: gameChannelId || null,
         }),
       })
 
@@ -186,8 +194,8 @@ export default function NotificationSettings() {
 
         {message && (
           <div className={`p-3 rounded-lg text-sm ${message.startsWith('Error')
-              ? 'bg-red-100 text-red-700'
-              : 'bg-green-100 text-green-700'
+            ? 'bg-red-100 text-red-700'
+            : 'bg-green-100 text-green-700'
             }`}>
             {message}
           </div>
@@ -340,6 +348,49 @@ export default function NotificationSettings() {
               />
               <span>Notify when game ends (final score)</span>
             </label>
+          </div>
+
+          {/* Game Channels */}
+          <div className="bg-white rounded-2xl border-2 border-black/10 p-6 space-y-4">
+            <h3 className="font-bold mb-3">Game Channel Embeds</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Automatically post rich game embeds with team info, records, and odds when games start
+            </p>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createGameChannels}
+                onChange={(e) => setCreateGameChannels(e.target.checked)}
+                className="w-4 h-4 text-brand-accent rounded"
+              />
+              <span>Enable game channel embeds</span>
+            </label>
+
+            {createGameChannels && (
+              <div className="mt-4 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select channel for game embeds
+                </label>
+                <select
+                  value={gameChannelId}
+                  onChange={(e) => setGameChannelId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Choose a channel...</option>
+                  {channels.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.experience.name}
+                    </option>
+                  ))}
+                </select>
+                {!gameChannelId && (
+                  <p className="text-xs text-amber-600">
+                    Please select a channel to enable game embeds
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Game Selection */}

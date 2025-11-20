@@ -4,6 +4,7 @@ import { getNFLGame } from './nfl'
 import { getGameById as getUCLGame } from './ucl'
 import { getTodaysNBAOdds } from './espn'
 import { checkPlayerProps } from './props'
+import { postGameChannel, updateGameChannel } from './game-channels'
 import { createMessage, formatGameUpdateMessage } from './whop-api'
 
 type EventType = 'score' | 'quarter_end' | 'game_start' | 'game_end'
@@ -153,6 +154,21 @@ async function processGameNotification(
   if (settings.notifyGameStart && state.lastStatus !== 'Live' && isLive) {
     shouldNotify = true
     eventType = 'game_start'
+
+    // Post game channel embed if enabled
+    const settingsWithGameChannels = settings as any
+    if (settingsWithGameChannels.createGameChannels && settingsWithGameChannels.gameChannelId) {
+      try {
+        await postGameChannel(settingsWithGameChannels.gameChannelId, {
+          game,
+          companyId: settings.companyId,
+          experienceId: settings.experienceId,
+          sport,
+        })
+      } catch (e) {
+        console.error('[Game Channels] Failed to post game channel:', e)
+      }
+    }
   }
 
   // Game end notification

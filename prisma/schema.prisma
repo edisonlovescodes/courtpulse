@@ -53,6 +53,8 @@ model NotificationSettings {
   notifyGameEnd        Boolean  @default(true)
   notifyQuarterEnd     Boolean  @default(true)
   trackedGames         String   @default("") // Comma-separated game IDs
+  createGameChannels   Boolean  @default(false) // Enable automatic game channel embeds
+  gameChannelId        String?  // Dedicated channel for game embeds
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -108,4 +110,27 @@ model PlayerPropAlert {
   updatedAt    DateTime @updatedAt
 
   @@index([companyId, experienceId, gameId])
+}
+
+// Track game channel embeds
+model GameChannel {
+  id           Int      @id @default(autoincrement())
+  companyId    String
+  experienceId String   @default("default_experience")
+  gameId       String
+  sport        String   @default("nba")
+  channelId    String?  // Whop channel ID where embed was posted
+  messageId    String?  // Message ID of the embed
+  bannerUrl    String?  // Generated banner image URL
+  homeTeam     String
+  awayTeam     String
+  homeRecord   String?
+  awayRecord   String?
+  gameStatus   String   @default("scheduled") // 'scheduled', 'live', 'final'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([companyId, experienceId, gameId, sport])
+  @@index([companyId, experienceId])
+  @@index([gameStatus])
 }
