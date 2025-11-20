@@ -20,7 +20,7 @@ export async function getTodaysNBAOdds(): Promise<NBAOdds[]> {
         const response = await fetch(
             'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
             {
-                next: { revalidate: 60 }, // Cache for 60 seconds
+                cache: 'no-store', // Disable cache for debugging
             }
         )
 
