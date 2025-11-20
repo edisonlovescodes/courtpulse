@@ -39,6 +39,7 @@ type LiveGamesProps = {
 type NotificationSettings = {
   id?: number
   companyId?: string
+  experienceId?: string
   enabled: boolean
   channelId: string | null
   channelIds: string[]
@@ -84,7 +85,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
     ? tracked.map((id: any) => String(id))
     : typeof tracked === 'string'
       ? tracked
-          .split(',')
+        .split(',')
         .map((id: string) => id.trim())
         .filter(Boolean)
       : []
@@ -103,6 +104,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   return {
     id: raw?.id,
     companyId: raw?.companyId ?? undefined,
+    experienceId: raw?.experienceId ?? undefined,
     enabled: Boolean(raw?.enabled),
     channelId: channelIds[0] ?? null,
     channelIds,
@@ -115,7 +117,7 @@ const normaliseSettings = (raw: any): NotificationSettings => {
   }
 }
 
-export default function LiveGames({ companyId: initialCompanyId, isAdmin }: LiveGamesProps = {}) {
+export default function LiveGames({ companyId: initialCompanyId, experienceId: initialExperienceId, isAdmin }: LiveGamesProps = {}) {
   const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -123,6 +125,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
   // Simple: server tells us if user is admin via initialCompanyId
   const fallbackCompanyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || null
   const companyId = initialCompanyId ?? fallbackCompanyId ?? undefined
+  const experienceId = initialExperienceId || 'default_experience'
   const hasAdminAccess = Boolean(companyId)
 
   const [notifSettings, setNotifSettings] = useState<NotificationSettings | null>(null)
@@ -201,12 +204,12 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
       setNotifError('Company context missing. Please refresh the page.')
       return
     }
-    
+
     if (!notifSettings) {
       setNotifError('Notification settings not loaded. Please try again.')
       return
     }
-    
+
     if (!notifSettings.channelIds.length) {
       setNotifError('Select at least one chat channel in settings before following games.')
       return
@@ -227,6 +230,7 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
+          experienceId: notifSettings.experienceId || experienceId,
           sport: 'nba',
           enabled: notifSettings.enabled,
           channelIds: notifSettings.channelIds,
@@ -594,9 +598,8 @@ export default function LiveGames({ companyId: initialCompanyId, isAdmin }: Live
 
                   <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs">
                     <span
-                      className={`inline-flex items-center rounded px-2 py-1 font-semibold ${
-                        isFinal ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
-                      }`}
+                      className={`inline-flex items-center rounded px-2 py-1 font-semibold ${isFinal ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
+                        }`}
                     >
                       {g.status}
                     </span>
