@@ -148,21 +148,27 @@ export function formatGameUpdateMessage(data: {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   })()
 
+  // Use nicknames if available, otherwise fall back to full names
+  const awayDisplay = awayNickname || awayTeam
+  const homeDisplay = homeNickname || homeTeam
+
   const lines: string[] = [
-    `${awayTeam} @ ${homeTeam}`,
+    `${awayDisplay} @ ${homeDisplay}`,
     '',
-    `Score: ${awayNickname ?? awayTeam} ${awayScore} - ${homeScore} ${homeNickname ?? homeTeam}`,
+    `Score: ${awayScore} - ${homeScore}`,
   ]
 
+  // Add odds right after score
   if (odds) {
     const oddsParts = []
-    if (odds.spread) oddsParts.push(`Spread: ${odds.spread}`)
-    if (odds.overUnder) oddsParts.push(`O/U: ${odds.overUnder}`)
+    if (odds.spread) oddsParts.push(`${homeDisplay} ${odds.spread}`)
+    if (odds.overUnder) oddsParts.push(`O/U ${odds.overUnder}`)
     if (oddsParts.length > 0) {
       lines.push(`💰 ${oddsParts.join(' | ')}`)
     }
   }
 
+  // Add status/time at the end
   if (eventType === 'game_start') {
     lines.push('', '🏀 Game Starting!')
   } else if (eventType === 'game_end') {
