@@ -2,6 +2,8 @@ import { prisma } from './prisma'
 import { getGameById } from './ball'
 import { getNFLGame } from './nfl'
 import { getGameById as getUCLGame } from './ucl'
+import { getTodaysNBAOdds } from './espn'
+import { checkPlayerProps } from './props'
 import { createMessage, formatGameUpdateMessage } from './whop-api'
 
 type EventType = 'score' | 'quarter_end' | 'game_start' | 'game_end'
@@ -228,7 +230,51 @@ async function processGameNotification(
       gameClock: game.gameClock,
       status,
       eventType,
+      odds: undefined,
     })
+
+    // Fetch odds if it's an NBA game
+    if (sport === 'nba') {
+      try {
+        const allOdds = await getTodaysNBAOdds()
+        // Try to match by gameId first (if IDs match), otherwise by tricode
+        // Note: NBA API IDs and ESPN IDs are different, so we match by team tricode
+        const homeTricode = game.homeTeam.teamTricode
+        const matchOdds = allOdds.find(o => o.homeTeamTricode === homeTricode)
+
+        if (matchOdds) {
+          // Re-create message with odds
+          const messageWithOdds = formatGameUpdateMessage({
+            homeTeam: `${game.homeTeam.teamCity} ${game.homeTeam.teamName}`,
+            awayTeam: `${game.awayTeam.teamCity} ${game.awayTeam.teamName}`,
+            homeNickname: game.homeTeam.teamName,
+            awayNickname: game.awayTeam.teamName,
+            homeScore,
+            awayScore,
+            period,
+            gameClock: game.gameClock,
+            status,
+            eventType,
+            odds: {
+              spread: matchOdds.spread,
+              overUnder: matchOdds.overUnder,
+              moneyline: matchOdds.moneyline
+            }
+          })
+
+          await Promise.all(channelIds.map((id) => createMessage(id, messageWithOdds)))
+          return
+        }
+      } catch (e) {
+        console.error('Error fetching odds for notification:', e)
+      }
+
+      // Check player props
+      if (game.homeTeam.players && game.awayTeam.players) {
+        const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
+        await checkPlayerProps(gameId, sport, allPlayers)
+      }
+    }
 
     try {
       await Promise.all(channelIds.map((id) => createMessage(id, message)))
@@ -243,7 +289,7 @@ async function processGameNotification(
           lastStatus: state.lastStatus,
           lastNotifiedAt: state.lastNotifiedAt,
         },
-      }).catch(() => {})
+      }).catch(() => { })
       throw err
     }
 

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -81,7 +81,7 @@ model GameNotificationState {
 model TestGameSession {
   id           Int      @id @default(autoincrement())
   gameId       String
-  snapshotData String   @db.Text // JSON of historical game data
+  snapshotData String   // JSON of historical game data
   startedAt    DateTime
   isActive     Boolean  @default(true)
   companyId    String
@@ -89,4 +89,23 @@ model TestGameSession {
 
   @@unique([companyId, gameId])
   @@index([companyId, isActive])
+}
+
+model PlayerPropAlert {
+  id           Int      @id @default(autoincrement())
+  companyId    String
+  experienceId String   @default("default_experience")
+  gameId       String
+  sport        String   @default("nba")
+  playerId     Int      // NBA personId
+  playerName   String
+  propType     String   // 'points', 'assists', 'rebounds', 'threes'
+  targetValue  Float
+  condition    String   // 'over' | 'under'
+  status       String   @default("pending") // 'pending', 'hit', 'completed'
+  channelId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId, experienceId, gameId])
 }

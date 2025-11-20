@@ -128,8 +128,16 @@ export function formatGameUpdateMessage(data: {
   gameClock?: string
   status: string
   eventType?: 'score' | 'quarter_end' | 'game_start' | 'game_end'
+  odds?: {
+    spread?: string
+    overUnder?: string
+    moneyline?: {
+      home?: string
+      away?: string
+    }
+  }
 }): string {
-  const { homeTeam, awayTeam, homeNickname, awayNickname, homeScore, awayScore, period, gameClock, status, eventType } = data
+  const { homeTeam, awayTeam, homeNickname, awayNickname, homeScore, awayScore, period, gameClock, status, eventType, odds } = data
 
   const readableClock = (() => {
     if (!gameClock) return ''
@@ -145,6 +153,15 @@ export function formatGameUpdateMessage(data: {
     '',
     `Score: ${awayNickname ?? awayTeam} ${awayScore} - ${homeScore} ${homeNickname ?? homeTeam}`,
   ]
+
+  if (odds) {
+    const oddsParts = []
+    if (odds.spread) oddsParts.push(`Spread: ${odds.spread}`)
+    if (odds.overUnder) oddsParts.push(`O/U: ${odds.overUnder}`)
+    if (oddsParts.length > 0) {
+      lines.push(`💰 ${oddsParts.join(' | ')}`)
+    }
+  }
 
   if (eventType === 'game_start') {
     lines.push('', '🏀 Game Starting!')
