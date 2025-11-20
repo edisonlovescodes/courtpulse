@@ -156,6 +156,7 @@ export function formatGameUpdateMessage(data: {
     `${awayDisplay} @ ${homeDisplay}`,
     '',
     `Score: ${awayScore} - ${homeScore}`,
+    '',
   ]
 
   // Add odds right after score
@@ -165,20 +166,21 @@ export function formatGameUpdateMessage(data: {
     if (odds.overUnder) oddsParts.push(`O/U ${odds.overUnder}`)
     if (oddsParts.length > 0) {
       lines.push(`💰 ${oddsParts.join(' | ')}`)
+      lines.push('')
     }
   }
 
   // Add status/time at the end
   if (eventType === 'game_start') {
-    lines.push('', '🏀 Game Starting!')
+    lines.push('🏀 Game Starting!')
   } else if (eventType === 'game_end') {
-    lines.push('', '🏁 Final')
+    lines.push('🏁 Final')
   } else if (eventType === 'quarter_end') {
-    lines.push('', `⏰ End of Q${period}`)
+    lines.push(`⏰ End of Q${period}`)
   } else if (period > 0) {
-    lines.push('', `📊 Q${period}${readableClock ? ` • ${readableClock}` : ''}`)
+    lines.push(`📊 Q${period}${readableClock ? ` • ${readableClock}` : ''}`)
   } else {
-    lines.push('', `📅 ${status}`)
+    lines.push(`📅 ${status}`)
   }
 
   return lines.join('\n')
