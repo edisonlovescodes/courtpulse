@@ -271,8 +271,12 @@ async function processGameNotification(
 
       // Check player props
       if (game.homeTeam.players && game.awayTeam.players) {
-        const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
-        await checkPlayerProps(gameId, sport, allPlayers)
+        try {
+          const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
+          await checkPlayerProps(gameId, sport, allPlayers)
+        } catch (e) {
+          console.error('Error checking player props:', e)
+        }
       }
     }
 
