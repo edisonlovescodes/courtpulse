@@ -237,10 +237,16 @@ async function processGameNotification(
     if (sport === 'nba') {
       try {
         const allOdds = await getTodaysNBAOdds()
+        console.log('[Odds Debug] Fetched odds count:', allOdds.length)
+
         // Try to match by gameId first (if IDs match), otherwise by tricode
         // Note: NBA API IDs and ESPN IDs are different, so we match by team tricode
         const homeTricode = game.homeTeam.teamTricode
+        const awayTricode = game.awayTeam.teamTricode
+        console.log('[Odds Debug] Looking for game:', { homeTricode, awayTricode })
+
         const matchOdds = allOdds.find(o => o.homeTeamTricode === homeTricode)
+        console.log('[Odds Debug] Match found:', matchOdds ? 'YES' : 'NO', matchOdds)
 
         if (matchOdds) {
           // Re-create message with odds
