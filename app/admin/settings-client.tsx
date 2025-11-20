@@ -14,6 +14,7 @@ type Channel = {
 type Settings = {
   id: number
   companyId: string
+  experienceId: string
   enabled: boolean
   channelId: string | null
   channelIds?: string[]
@@ -106,11 +107,17 @@ export default function NotificationSettings() {
         ? channels.find(c => c.id === selectedChannels[0])?.experience.name || null
         : null
 
+      // Use experienceId from loaded settings, or default to 'default_experience'
+      // If we have selected channels, we could potentially use their experienceId,
+      // but for now let's stick to what we loaded to ensure consistency.
+      const experienceId = settings?.experienceId || 'default_experience'
+
       const res = await fetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
+          experienceId,
           enabled,
           channelId: selectedChannels[0] || null,
           channelIds: selectedChannels,
@@ -178,11 +185,10 @@ export default function NotificationSettings() {
         </div>
 
         {message && (
-          <div className={`p-3 rounded-lg text-sm ${
-            message.startsWith('Error')
+          <div className={`p-3 rounded-lg text-sm ${message.startsWith('Error')
               ? 'bg-red-100 text-red-700'
               : 'bg-green-100 text-green-700'
-          }`}>
+            }`}>
             {message}
           </div>
         )}
