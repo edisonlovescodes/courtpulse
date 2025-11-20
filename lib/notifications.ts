@@ -233,22 +233,24 @@ async function processGameNotification(
       odds: undefined,
     })
 
-    // Fetch odds if it's an NBA game
-    if (sport === 'nba') {
-      try {
-        const allOdds = await getTodaysNBAOdds()
-        console.log('[Odds Debug] Fetched odds count:', allOdds.length)
+    // Fetch odds ONLY at the start of each quarter to save API calls
+    // This reduces API usage from ~100/day to ~40/day (4 quarters × 10 games)
+    const shouldFetchOdds = sport === 'nba' && period !== state.lastPeriod && period > 0
 
-        // Try to match by gameId first (if IDs match), otherwise by tricode
-        // Note: NBA API IDs and ESPN IDs are different, so we match by team tricode
+    if (shouldFetchOdds) {
+      try {
+        console.log('[Odds] Fetching odds (new quarter detected)')
+        const allOdds = await getTodaysNBAOdds()
+        console.log('[Odds API] Fetched', allOdds.length, 'games')
+
         const homeTricode = game.homeTeam.teamTricode
         const awayTricode = game.awayTeam.teamTricode
-        console.log('[Odds Debug] Looking for game:', { homeTricode, awayTricode })
+        console.log('[Odds] Looking for game:', { homeTricode, awayTricode })
 
         const matchOdds = allOdds.find(o => o.homeTeamTricode === homeTricode)
-        console.log('[Odds Debug] Match found:', matchOdds ? 'YES' : 'NO', matchOdds)
+        console.log('[Odds] Match found:', matchOdds ? 'YES' : 'NO', matchOdds)
 
-        if (matchOdds) {
+        if (matchOdds && (matchOdds.spread || matchOdds.overUnder)) {
           // Re-create message with odds
           const messageWithOdds = formatGameUpdateMessage({
             homeTeam: `${game.homeTeam.teamCity} ${game.homeTeam.teamName}`,
@@ -269,20 +271,31 @@ async function processGameNotification(
           })
 
           await Promise.all(channelIds.map((id) => createMessage(id, messageWithOdds)))
+
+          // Check player props
+          if (game.homeTeam.players && game.awayTeam.players) {
+            try {
+              const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
+              await checkPlayerProps(gameId, sport, allPlayers)
+            } catch (e) {
+              console.error('Error checking player props:', e)
+            }
+          }
+
           return
         }
       } catch (e) {
-        console.error('Error fetching odds for notification:', e)
+        console.error('[Odds] Error fetching odds:', e)
       }
+    }
 
-      // Check player props
-      if (game.homeTeam.players && game.awayTeam.players) {
-        try {
-          const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
-          await checkPlayerProps(gameId, sport, allPlayers)
-        } catch (e) {
-          console.error('Error checking player props:', e)
-        }
+    // Check player props even if not fetching odds
+    if (sport === 'nba' && game.homeTeam.players && game.awayTeam.players) {
+      try {
+        const allPlayers = [...game.homeTeam.players, ...game.awayTeam.players]
+        await checkPlayerProps(gameId, sport, allPlayers)
+      } catch (e) {
+        console.error('Error checking player props:', e)
       }
     }
 
